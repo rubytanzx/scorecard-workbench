@@ -1,0 +1,74 @@
+[
+  {
+    "id": "social-safety-net",
+    "question": "Social safety net results rose in FY25, but the gain came from new projects entering the pipeline, not deeper coverage in existing ones.",
+    "outcome_area": "Protection for the Poorest",
+    "indicator_code": "CSC_RES_SOC_SAF_PROG",
+    "accent": "#34D399",
+    "headline": "Social safety net results rose in FY25, but the gain came from new projects entering the pipeline, not deeper coverage in existing ones.",
+    "insight": "The FY25 aggregate shows more beneficiaries reached through social safety net programs than FY24. But when you look at projects that were active in both years, the year-on-year gain largely disappears.\n\nThe increase reflects portfolio expansion rather than improved performance within the existing portfolio. The number of countries with sustained, multi-year progress on this indicator is smaller than the headline figure suggests.",
+    "hero_stat": null,
+    "follow_ups": [
+      "Which countries are showing sustained progress on social safety nets across both FY24 and FY25?",
+      "How does FY25 portfolio expansion compare to previous IDA cycles?",
+      "Build me a narrative on social safety net results for FY25."
+    ],
+    "generated_at": "2026-06-27T08:00:00.000Z",
+    "insight_type": "Tension Finding",
+    "engagement_count": 83
+  },
+  {
+    "id": "electricity-access",
+    "question": "Electricity access results are on track globally, but Sub-Saharan Africa's share of beneficiaries fell in FY25 despite having the largest access deficit of any region.",
+    "outcome_area": "Affordable, Reliable and Sustainable Energy for All",
+    "indicator_code": "CSC_RES_ELE_ACC",
+    "accent": "#FBBF24",
+    "headline": "Electricity access results are on track globally, but Sub-Saharan Africa's share of beneficiaries fell in FY25 despite having the largest access deficit of any region.",
+    "insight": "Global electricity access results improved from FY24 to FY25. Most of that progress is concentrated in South Asia and East Asia Pacific, where infrastructure density supports faster delivery.\n\nSub-Saharan Africa, which accounts for the largest share of people without electricity access globally, contributed a smaller proportion of FY25 beneficiaries than it did in FY24. The aggregate result is on track, but the distribution of progress does not yet reflect where the need is greatest.",
+    "hero_stat": null,
+    "follow_ups": [
+      "What is driving the electricity access results in Sub-Saharan Africa specifically?",
+      "How does beneficiary reach compare to the location of the poorest populations in this region?",
+      "Build me a narrative on electricity access results for Sub-Saharan Africa."
+    ],
+    "generated_at": "2026-06-27T08:00:00.000Z",
+    "insight_type": "Benchmark Comparison",
+    "engagement_count": 61
+  },
+  {
+    "id": "learning-poverty",
+    "question": "Learning poverty results are improving, but beneficiaries are more concentrated in peri-urban areas than in the highest-poverty districts.",
+    "outcome_area": "Learning Poverty",
+    "indicator_code": "CSC_RES_EDU_LEARN",
+    "accent": "#A78BFA",
+    "headline": "Learning poverty results are improving, but beneficiaries are more concentrated in peri-urban areas than in the highest-poverty districts.",
+    "insight": "Education results show improvement in IDA countries where active projects are operating. However, the geographic distribution of beneficiaries does not fully align with where learning poverty is most severe.\n\nIn fragility-affected countries, the gap between where projects are reaching people and where learning poverty is highest is most pronounced. Headline results are moving in the right direction, but the populations furthest from educational services are seeing less of that progress.",
+    "hero_stat": null,
+    "follow_ups": [
+      "Which fragility-affected countries show the largest gap between project reach and learning poverty concentration?",
+      "How does this compare across IDA regions?",
+      "Build me a narrative on education results and equity of reach for FY25."
+    ],
+    "generated_at": "2026-06-27T08:00:00.000Z",
+    "insight_type": "Tension Finding",
+    "engagement_count": 47
+  },
+  {
+    "id": "stunting-methodology",
+    "question": "Stunting results declined in FY25, but the drop reflects a methodology change in how joint programming beneficiaries are counted, not a deterioration in outcomes.",
+    "outcome_area": "Healthier Lives",
+    "indicator_code": "CSC_RES_NUT_STUNT",
+    "accent": "#60A5FA",
+    "headline": "Stunting results declined in FY25, but the drop reflects a methodology change in how joint programming beneficiaries are counted, not a deterioration in outcomes.",
+    "insight": "FY25 stunting results are lower than FY24 for IDA countries. This is not a signal that nutrition outcomes have worsened.\n\nThe decline is attributable to a change in how beneficiaries are counted across jointly programmed projects, which introduced stricter deduplication rules this cycle. When you compare only projects using consistent counting methods across both years, results are flat to modestly positive.\n\nThe number requires context before it can be interpreted as progress or regression.",
+    "hero_stat": null,
+    "follow_ups": [
+      "How were stunting beneficiaries counted differently in FY25 compared to FY24?",
+      "Which projects were most affected by the methodology change?",
+      "Build me a narrative on nutrition results that accounts for the counting change."
+    ],
+    "generated_at": "2026-06-27T08:00:00.000Z",
+    "insight_type": "Methodology Note",
+    "engagement_count": 39
+  }
+]

@@ -1,0 +1,506 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #1a202c;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: "Open Sans", sans-serif;
+}
+
+/* Override dark mode — this product is light-only */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #ffffff;
+    --foreground: #1a202c;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Open Sans", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Chart tooltip animation */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.15s ease-out;
+}
+
+/* Remove default button styles */
+button {
+  cursor: pointer;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Auto-hide scrollbar — invisible until the cursor enters the element */
+.scrollbar-auto-hide {
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.2s ease;
+}
+.scrollbar-auto-hide:hover {
+  scrollbar-color: #cbd5e1 transparent;
+}
+.scrollbar-auto-hide::-webkit-scrollbar-thumb {
+  background: transparent;
+  transition: background 0.2s ease;
+}
+.scrollbar-auto-hide:hover::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+.scrollbar-auto-hide:hover::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Fully hidden scrollbar — used by paginated carousels where the dots
+   communicate position, so the native scrollbar would be redundant. */
+.scrollbar-hidden {
+  scrollbar-width: none;
+}
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+/* Animated gradient sweep used by the landing-page "Create a narrative"
+   pill to give its border a subtle gleam. Pair with background-size
+   200% / animation gleam Ns linear infinite on the gradient layer. */
+@keyframes gleam {
+  0%   { background-position:   0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+/* Skeleton shimmer — horizontal gradient sweep for AI-loading placeholders. */
+@keyframes skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    #f3f4f6 0%,
+    #e9ebee 38%,
+    #f9fafb 55%,
+    #f3f4f6 100%
+  );
+  background-size: 300% 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+/* Violet variant — used when AI is rewriting a specific text passage. */
+.skeleton-shimmer-violet {
+  background: linear-gradient(
+    90deg,
+    #ede9fe 0%,
+    #c4b5fd 38%,
+    #f5f3ff 55%,
+    #ede9fe 100%
+  );
+  background-size: 300% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+/* Recharts tweaks */
+.recharts-tooltip-wrapper {
+  outline: none !important;
+}
+.recharts-surface {
+  overflow: visible;
+}
+
+/* Card entrance animation */
+@keyframes card-enter {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.card-enter {
+  animation: card-enter 300ms ease-out both;
+}
+
+/* Streaming text cursor blink */
+@keyframes stream-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.stream-cursor {
+  animation: stream-blink 0.65s step-end infinite;
+}
+
+/* Typing dots animation */
+@keyframes typing-dot {
+  0%, 60%, 100% { opacity: 0.3; }
+  30% { opacity: 1; }
+}
+
+/* Canvas loading pulse */
+@keyframes canvas-pulse {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 1; }
+}
+.canvas-loading-pulse {
+  animation: canvas-pulse 1s ease-in-out infinite;
+}
+
+/* Suppress ReactFlow's default selected node outline — cards handle it themselves */
+.react-flow__node:focus,
+.react-flow__node:focus-visible {
+  outline: none !important;
+}
+.react-flow__node.selected > * {
+  box-shadow: none;
+}
+
+/* ── Search-prompt "BEAM" gradient animation ─────────────────────────────── */
+/* A blurred blue/green spotlight that drifts behind the search box.        */
+.prompt-beam {
+  background: linear-gradient(
+    270deg,
+    rgba(255, 255, 255, 0)   0%,
+    rgba(0, 125, 183, 0.32) 25%,
+    rgba(141, 198, 63, 0.40) 50%,
+    rgba(0, 125, 183, 0.32) 75%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  background-position: 50% 50%;
+  filter: blur(60px);
+  animation:
+    prompt-beam-fade-in 0.45s ease-out both,
+    prompt-beam-shift 6s ease-in-out 0.45s infinite;
+}
+
+@keyframes prompt-beam-fade-in {
+  from { opacity: 0;    transform: translateX(-50%) scale(0.92); }
+  to   { opacity: 0.85; transform: translateX(-50%) scale(1); }
+}
+
+@keyframes prompt-beam-shift {
+  0%, 100% { background-position: 42% 50%; }
+  50%      { background-position: 58% 50%; }
+}
+
+/* Mild blue/green glow that sits behind the floating prompt bar when
+   it's docked at the bottom of the screen on the home view. Same
+   palette as `.prompt-beam` but softer (smaller blur + lower opacity)
+   so it reads as a subtle ambient wash, not a spotlight. */
+.prompt-bottom-glow {
+  background: linear-gradient(
+    270deg,
+    rgba(255, 255, 255, 0)   0%,
+    rgba(15, 118, 110, 0.30) 28%,
+    rgba(45, 212, 191, 0.42) 50%,
+    rgba(15, 118, 110, 0.30) 72%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  background-position: 50% 50%;
+  filter: blur(38px);
+  border-radius: 50%;
+  animation:
+    prompt-bottom-glow-fade-in 0.6s ease-out both,
+    prompt-beam-shift 8s ease-in-out 0.6s infinite;
+}
+
+@keyframes prompt-bottom-glow-fade-in {
+  from { opacity: 0;    transform: translateX(-50%) scale(0.94); }
+  to   { opacity: 0.55; transform: translateX(-50%) scale(1); }
+}
+
+/* Page-dimming overlay shown alongside the beam */
+.prompt-dim-overlay {
+  background: rgba(31, 58, 74, 0.65);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: prompt-dim-fade-in 0.35s ease-out both;
+  pointer-events: none;
+}
+
+@keyframes prompt-dim-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Animated gradient stroke — full-width line under the nav bar */
+.prompt-stroke {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 125, 183, 0)    0%,
+    rgba(0, 125, 183, 1)   15%,
+    rgba(141, 198, 63, 1)  50%,
+    rgba(0, 125, 183, 1)   85%,
+    rgba(0, 125, 183, 0)  100%
+  );
+  background-size: 200% 100%;
+  background-position: 0% 50%;
+  animation:
+    prompt-dim-fade-in 0.35s ease-out both,
+    prompt-stroke-shift 3.5s linear 0.35s infinite;
+}
+
+@keyframes prompt-stroke-shift {
+  0%   { background-position:   0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+/* ── Narrative-generation loaders ───────────────────────────────────────── */
+
+/* Soft shimmer that sweeps across skeleton blocks. Used as an overlay so
+   any underlying placeholder shape (map area, tile grid) reads as "loading"
+   even when its children are static. */
+@keyframes narrative-shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.narrative-shimmer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 100%
+  );
+  animation: narrative-shimmer 1.8s linear infinite;
+}
+
+/* Single dot that orbits a center point. Combined with `animation-delay`
+   on each instance to stagger the pulse around the orbit — reads like
+   regions being scanned/loaded on a globe. */
+@keyframes geography-orbit-pulse {
+  0%, 100% { opacity: 0.15; transform: scale(0.8); }
+  50%      { opacity: 1;    transform: scale(1.15); }
+}
+.geography-orbit-dot {
+  animation: geography-orbit-pulse 1.4s ease-in-out infinite;
+}
+
+/* Real-content entrance — soft lift + fade. Applied per-section with
+   staggered animation-delay so the narrative settles in section by
+   section after generation finishes. The cubic-bezier is a "soft
+   landing" curve (overshoot-free decel) so the motion reads natural
+   rather than springy. */
+@keyframes narrative-content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+.narrative-content-enter {
+  animation: narrative-content-enter 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Full-screen view entrance — fade + lift without blur (blur looks wrong at page scale) */
+@keyframes view-enter {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.view-enter {
+  animation: view-enter 400ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Conversation wrapper entrance — opacity only, NO transform.
+   Any transform (even translateY(0)) creates a CSS containing block that
+   confines position:fixed children to the wrapper's bounds, breaking the
+   full-width fixed header. */
+@keyframes conv-enter {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.conv-enter {
+  animation: conv-enter 400ms ease-out both;
+}
+
+/* ── Loading screen ──────────────────────────────────────────────────────── */
+
+/* Atmospheric glow pulse — the canvas wrapper breathes while loading */
+@keyframes globe-pulse {
+  0%, 100% { opacity: 0.85; }
+  50%       { opacity: 1; }
+}
+.globe-pulse {
+  animation: globe-pulse 3s ease-in-out infinite;
+}
+
+/* ── D3 Globe — network node animations ─────────────────────────────────── */
+@keyframes d3-aura-pulse {
+  0%, 100% { opacity: 0.45; }
+  50%       { opacity: 0.90; }
+}
+.d3-node-aura {
+  animation: d3-aura-pulse 3.6s ease-in-out infinite;
+}
+
+@keyframes d3-ring-pulse {
+  0%, 100% { opacity: 0.50; }
+  50%       { opacity: 1.00; }
+}
+.d3-node-ring {
+  animation: d3-ring-pulse 3.6s ease-in-out infinite;
+}
+
+/* Exit fade — applied when isReady becomes true */
+.loading-exit {
+  opacity: 0 !important;
+  pointer-events: none;
+  transition: opacity 600ms ease-out;
+}
+
+/* ── Conversation view dark mode ─────────────────────────────────────────────
+   Applied via the `dark` prop on <ConversationView>.
+   To revert to light mode: change dark={true} → dark={false} in page.tsx.
+   All light-mode class names are preserved; only the rendered values change.  */
+
+/* Slate-navy palette
+   base    #112531   card    #1E293B   subtle  #253347
+   hover   #2D3E52   active  #334155
+   text-1  #F1F5F9   text-2  #CBD5E1   text-3  #94A3B8   text-4  #64748B
+   border  #334155   border-subtle #1E293B  border-strong #475569         */
+
+/* Root container */
+.cv-dark {
+  background-color: #112531 !important;
+  color: #F1F5F9;
+}
+
+/* Map mode — root background transparent so the flat map bleeds through */
+.cv-dark.cv-map-mode {
+  background-color: transparent !important;
+}
+
+/* ─ Backgrounds ─────────────────────────────────────────────────────────── */
+.cv-dark .bg-white          { background-color: #1E293B !important; }
+.cv-dark .bg-gray-50        { background-color: #253347 !important; }
+.cv-dark .bg-gray-100       { background-color: #2D3E52 !important; }
+
+/* Tailwind opacity modifier (bg-gray-50/60) */
+.cv-dark .bg-gray-50\/60    { background-color: rgb(37 51 71 / 0.6) !important; }
+
+/* User message bubble */
+.cv-dark .bg-blue-50        { background-color: #0F2440 !important; }
+
+/* Accent tint icons in artefact list — darken the pastel backgrounds */
+.cv-dark .bg-emerald-50     { background-color: #0D2018 !important; }
+.cv-dark .bg-violet-50      { background-color: #1A0F2E !important; }
+
+/* ─ Text ────────────────────────────────────────────────────────────────── */
+.cv-dark .text-gray-900     { color: #F1F5F9 !important; }
+.cv-dark .text-gray-800     { color: #E2E8F0 !important; }
+.cv-dark .text-gray-700     { color: #CBD5E1 !important; }
+.cv-dark .text-gray-600     { color: #94A3B8 !important; }
+.cv-dark .text-gray-500     { color: #94A3B8 !important; }
+.cv-dark .text-gray-400     { color: #64748B !important; }
+
+/* Accent text colours that appear inside the artefact list */
+.cv-dark .text-emerald-700  { color: #34D399 !important; }
+.cv-dark .text-blue-700     { color: #60A5FA !important; }
+
+/* ─ Borders ─────────────────────────────────────────────────────────────── */
+.cv-dark .border-gray-100   { border-color: #1E293B !important; }
+.cv-dark .border-gray-200   { border-color: #334155 !important; }
+.cv-dark .border-gray-300   { border-color: #475569 !important; }
+/* Selected filter tab uses border-gray-900 as active indicator */
+.cv-dark .border-gray-900   { border-color: #F1F5F9 !important; }
+
+/* ─ Hover states ────────────────────────────────────────────────────────── */
+.cv-dark .hover\:bg-gray-50:hover          { background-color: #253347 !important; }
+.cv-dark .hover\:bg-gray-100:hover         { background-color: #2D3E52 !important; }
+.cv-dark .hover\:border-gray-300:hover     { border-color: #475569 !important; }
+.cv-dark .hover\:border-gray-200:hover     { border-color: #334155 !important; }
+
+/* ─ Shadows ─────────────────────────────────────────────────────────────── */
+.cv-dark .shadow-sm  { box-shadow: 0 1px 2px 0 rgba(0,0,0,0.5) !important; }
+.cv-dark .shadow-md  { box-shadow: 0 4px 6px -1px rgba(0,0,0,0.5), 0 2px 4px -2px rgba(0,0,0,0.5) !important; }
+.cv-dark .shadow-lg  { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.6), 0 4px 6px -4px rgba(0,0,0,0.6) !important; }
+
+/* ─ Recharts chart lines and tick labels ───────────────────────────────── */
+.cv-dark .recharts-cartesian-grid line  { stroke: #334155 !important; }
+.cv-dark .recharts-text                 { fill: #94A3B8 !important; }
+.cv-dark .recharts-xAxis .recharts-text { fill: #94A3B8 !important; }
+.cv-dark .recharts-yAxis .recharts-text { fill: #94A3B8 !important; }
+
+/* ─ Skeleton shimmer — dark variant ────────────────────────────────────── */
+.cv-dark .skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    #1E293B 0%,
+    #253347 38%,
+    #1E293B 55%,
+    #1E293B 100%
+  ) !important;
+  background-size: 300% 100% !important;
+}
+
+/* ─ Additional text shades ──────────────────────────────────────────────── */
+.cv-dark .text-gray-800     { color: #E2E8F0 !important; }
+
+/* ─ Additional background shades ───────────────────────────────────────── */
+.cv-dark .bg-gray-200       { background-color: #2D3E52 !important; }
+.cv-dark .bg-gray-300       { background-color: #334155 !important; }
+/* Opacity-modified bg (e.g. bg-gray-200/70 used as card dividers) */
+.cv-dark .bg-gray-200\/70   { background-color: rgb(51 65 85 / 0.7) !important; }
+
+/* ─ Violet accent ────────────────────────────────────────────────────────── */
+.cv-dark .bg-violet-50              { background-color: #1A1535 !important; }
+.cv-dark .hover\:bg-violet-50:hover { background-color: #1A1535 !important; }
+.cv-dark .border-violet-300         { border-color: rgba(139,92,246,0.5) !important; }
+.cv-dark .border-violet-200         { border-color: rgba(139,92,246,0.35) !important; }
+.cv-dark .hover\:border-violet-200:hover { border-color: rgba(139,92,246,0.5) !important; }
+/* Violet text — links and labels */
+.cv-dark .text-violet-600           { color: #A78BFA !important; }
+.cv-dark .text-violet-700           { color: #A78BFA !important; }
+.cv-dark .hover\:text-violet-700:hover { color: #C4B5FD !important; }
+.cv-dark .hover\:text-violet-400:hover { color: #C4B5FD !important; }
+
+/* ─ Blue accent (outcome-area tag on skeleton cards) ───────────────────── */
+.cv-dark .text-blue-700     { color: #93C5FD !important; }
+.cv-dark .border-blue-200   { border-color: #1E40AF !important; }
+
+/* ─ Pagination dots ─────────────────────────────────────────────────────── */
+.cv-dark .bg-gray-300       { background-color: #334155 !important; }
+.cv-dark .hover\:bg-gray-400:hover { background-color: #475569 !important; }
+
+/* ─ Gradient stop overrides (card summary fade-out) ────────────────────── */
+.cv-dark .to-white {
+  --tw-gradient-to: #1E293B !important;
+}
+
+/* ─ Scrollbar — dim for dark background ────────────────────────────────── */
+.cv-dark .scrollbar-auto-hide:hover               { scrollbar-color: #334155 transparent; }
+.cv-dark .scrollbar-auto-hide:hover::-webkit-scrollbar-thumb        { background: #334155; }
+.cv-dark .scrollbar-auto-hide:hover::-webkit-scrollbar-thumb:hover  { background: #475569; }
