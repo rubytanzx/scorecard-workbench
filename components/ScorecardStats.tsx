@@ -6,9 +6,9 @@ const F = "'Open Sans', sans-serif";
 
 const STATS = [
   {
-    value: "4",
+    value: "9",
     unit: "",
-    label: "Institutions",
+    label: "Targets",
   },
   {
     value: "15",
