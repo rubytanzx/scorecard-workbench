@@ -25,6 +25,7 @@ import { useNarrativeSession } from "@/hooks/useNarrativeSession";
 import type { ConverseSkeleton } from "@/lib/converse";
 import ViewerView from "@/components/conversation/ViewerView";
 import WorkspaceView from "@/components/conversation/WorkspaceView";
+import ShareModal from "@/components/ShareModal";
 import PromptBar from "@/components/PromptBar";
 import IndicatorTicker from "@/components/IndicatorTicker";
 import SynthesizedInsights from "@/components/SynthesizedInsights";
@@ -35,7 +36,7 @@ import FeaturedNarratives from "@/components/FeaturedNarratives";
 import CounterIntuitiveFindings from "@/components/CounterIntuitiveTextCard";
 import OutcomeAreaGrid from "@/components/SystemPatternTile";
 
-import { indicators, secondaryStories, hnpGeoHint, type GeoCountryDetail } from "@/lib/mockData";
+import { indicators, secondaryStories, hnpGeoHint, norwayGeoHint, type GeoCountryDetail, type MomentumRow } from "@/lib/mockData";
 import LoadingScreen from "@/components/LoadingScreen";
 import D3Globe from "@/components/D3Globe";
 import FlatMapOverlay from "@/components/FlatMapOverlay";
@@ -210,6 +211,8 @@ export default function HomePage() {
     setFlatMapOpen(false);
     setMapCollapsed(false);
     setConversationGeoHint(null);
+    setActiveRowData(null);
+    setMapViewMode("achieved");
     if (typeof window !== "undefined") {
       window.history.pushState({ view: "home" }, "", "/");
     }
@@ -217,9 +220,15 @@ export default function HomePage() {
   const [conversationPrompt, setConversationPrompt] = useState("");
   const [conversationFollowUps, setConversationFollowUps] = useState<string[]>([]);
   const [conversationSourceCard, setConversationSourceCard] = useState<import("@/lib/mockData").MomentumGroup | null>(null);
+  const [activeRowData, setActiveRowData] = useState<MomentumRow | null>(null);
+  const [mapViewMode, setMapViewMode] = useState<"achieved" | "expected">("achieved");
   const [conversationGeoHint, setConversationGeoHint] = useState<{
-    regions: string[];
-    geoData: Record<string, string>;
+    regions?: string[];
+    achievedRegions?: string[];
+    expectedRegions?: string[];
+    geoData?: Record<string, string>;
+    achievedGeoData?: Record<string, string>;
+    expectedGeoData?: Record<string, string>;
     geoDetailData: Record<string, GeoCountryDetail>;
     title: string;
     color: string;
@@ -259,6 +268,7 @@ export default function HomePage() {
   );
   const [narrativePanelLoading, setNarrativePanelLoading] = useState(false);
   const [narrativeVariant, setNarrativeVariant] = useState<"results" | "donor-priorities">("results");
+  const [shareOpen, setShareOpen] = useState(false);
   const [narrativeMeta, setNarrativeMeta] = useState<NarrativeMeta | null>(null);
   const [narrativeTitle, setNarrativeTitle] = useState<string>("");
   const [addedVisuals, setAddedVisuals] = useState<AddedVisual[]>([]);
@@ -306,6 +316,7 @@ export default function HomePage() {
   const [regenerateConfirm, setRegenerateConfirm] = useState<string | null>(null);
   const [homeScrolled, setHomeScrolled] = useState(false);
   const homeScrollRef = useRef<HTMLDivElement>(null);
+  const heroSentinelRef = useRef<HTMLDivElement>(null);
   // Stored handle for the post-confirm animation delay so future readers
   // know it's intentional and can cancel if navigation patterns change.
   const narrativeConfirmTimerRef = useRef<number | null>(null);
@@ -326,6 +337,34 @@ export default function HomePage() {
     "emerging":     "#818CF8",
   };
   const cardAccent = conversationSourceCard ? (GROUP_ACCENT[conversationSourceCard.id] ?? "#34D399") : "#34D399";
+
+  // Compute map regions + data based on whether a single indicator row is active
+  const geoHintRegions = conversationGeoHint
+    ? (mapViewMode === "achieved"
+        ? (conversationGeoHint.achievedRegions ?? conversationGeoHint.regions)
+        : (conversationGeoHint.expectedRegions ?? conversationGeoHint.regions))
+    : undefined;
+  const geoHintData = conversationGeoHint
+    ? (mapViewMode === "achieved"
+        ? (conversationGeoHint.achievedGeoData ?? conversationGeoHint.geoData)
+        : (conversationGeoHint.expectedGeoData ?? conversationGeoHint.geoData))
+    : undefined;
+
+  const currentMapRegions = activeRowData
+    ? (mapViewMode === "achieved"
+        ? (activeRowData.achievedGeoRegions ?? conversationSourceCard?.geoRegions ?? geoHintRegions)
+        : (activeRowData.expectedGeoRegions ?? conversationSourceCard?.geoRegions ?? geoHintRegions))
+    : (conversationSourceCard?.geoRegions ?? geoHintRegions);
+
+  const currentMapData = activeRowData
+    ? (mapViewMode === "achieved"
+        ? (activeRowData.achievedGeoData ?? conversationSourceCard?.geoData ?? geoHintData)
+        : (activeRowData.expectedGeoData ?? conversationSourceCard?.geoData ?? geoHintData))
+    : (conversationSourceCard?.geoData ?? geoHintData);
+
+  const currentMapColor = conversationGeoHint && !conversationSourceCard
+    ? (mapViewMode === "expected" ? "#60A5FA" : conversationGeoHint.color)
+    : (mapViewMode === "expected" && activeRowData ? "#60A5FA" : cardAccent);
 
   useEffect(() => {
     const measure = () => { setGlobeW(window.innerWidth); setGlobeH(window.innerHeight); };
@@ -352,36 +391,39 @@ export default function HomePage() {
   }, []);
 
   // Track home-page scroll so the prompt bar can dock at the bottom once the
-  // user moves past the hero. Listen on both the inner overflow-y-auto
-  // container and the window so it works regardless of the scroll target.
+  // IntersectionObserver: dock the prompt bar to the bottom only once the
+  // hero sentinel (placed at the bottom of SearchHero) leaves the viewport.
   useEffect(() => {
     if (view !== "home") {
       if (globeBlurRef.current) globeBlurRef.current.style.filter = "none";
+      setHomeScrolled(false);
       return;
     }
-    const THRESHOLD = 80;
+    const sentinel = heroSentinelRef.current;
+    const root = homeScrollRef.current;
+    if (!sentinel || !root) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setHomeScrolled(!entry.isIntersecting),
+      { root, threshold: 0 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [view]);
+
+  // Globe blur on scroll (separate from the dock trigger).
+  useEffect(() => {
+    if (view !== "home") return;
     const check = () => {
       const inner = homeScrollRef.current;
-      const innerTop = inner?.scrollTop ?? 0;
-      const winTop = typeof window !== "undefined"
-        ? (window.scrollY || document.documentElement.scrollTop || 0)
-        : 0;
-      const raw = Math.max(innerTop, winTop);
-      setHomeScrolled(raw > THRESHOLD);
-      // Blur globe as user scrolls: 0px at top → 14px at 320px scroll
+      const raw = inner?.scrollTop ?? 0;
       if (globeBlurRef.current) {
         const blurPx = Math.min(raw / 320 * 14, 14).toFixed(1);
         globeBlurRef.current.style.filter = `blur(${blurPx}px)`;
       }
     };
-    check();
     const inner = homeScrollRef.current;
     inner?.addEventListener("scroll", check, { passive: true });
-    window.addEventListener("scroll", check, { passive: true });
-    return () => {
-      inner?.removeEventListener("scroll", check);
-      window.removeEventListener("scroll", check);
-    };
+    return () => inner?.removeEventListener("scroll", check);
   }, [view]);
 
   // Browser back/forward support: popstate fires when the user navigates
@@ -430,10 +472,16 @@ export default function HomePage() {
     const id = Date.now().toString();
     resetNarrativeStateForNewConversation();
     setConversationSourceCard(null);
+    setActiveRowData(null);
+    setMapViewMode("achieved");
     setConversationFollowUps([]);
     // Set geo hint based on detected flow
     const flow = detectFlow(text);
-    setConversationGeoHint(flow === "hnp-measurement" ? hnpGeoHint : null);
+    setConversationGeoHint(
+      flow === "hnp-measurement" ? hnpGeoHint :
+      flow === "norway-donor"    ? norwayGeoHint :
+      null
+    );
     // Set after reset (reset clears it) so an insight click can preload a
     // synthesized answer into the conversation's first AI turn.
     setPreloadedInsight(preload ?? null);
@@ -1074,7 +1122,18 @@ export default function HomePage() {
         inputRef={promptInputRef}
         inConversation={view === "conversation"}
         contextChips={wizardContextChips}
-        onContextChipClick={(id) => wizardContextActionRef.current?.(id)}
+        onContextChipClick={(id) => {
+          if (id === "convert-narrative") {
+            const flow = detectFlow(conversationPrompt);
+            setNarrativeVariant(flow === "norway-donor" ? "donor-priorities" : "results");
+            setConversationFollowUps([]);
+            // Keep the preloaded answer visible but strip its follow-up prompts
+            setPreloadedInsight((prev) => prev ? { ...prev, followUps: [] } : null);
+            handleCreateNarrative();
+            return;
+          }
+          wizardContextActionRef.current?.(id);
+        }}
         onSubmit={() => {
           // Scroll the home view back to the top on submit so the beam runs
           // in the right place and the bar can animate from bottom→hero first.
@@ -1126,7 +1185,7 @@ export default function HomePage() {
                   display: "flex", alignItems: "center", justifyContent: "center",
                   opacity: (hideMap || flatMapOpen) ? 0 : 0.72,
                   transition: "opacity 450ms ease",
-                  pointerEvents: (conversationSourceCard?.geoRegions?.length || conversationGeoHint?.regions.length) ? "auto" : "none",
+                  pointerEvents: (currentMapRegions?.length) ? "auto" : "none",
                 }
               : {
                   position: "fixed",
@@ -1148,11 +1207,11 @@ export default function HomePage() {
               autoRotate
               rotationSpeed={0.12}
               showGleam={false}
-              highlightRegions={conversationSourceCard?.geoRegions ?? conversationGeoHint?.regions}
-              highlightColor={conversationGeoHint && !conversationSourceCard ? conversationGeoHint.color : cardAccent}
-              highlightTooltipData={conversationSourceCard?.geoData ?? conversationGeoHint?.geoData}
+              highlightRegions={currentMapRegions}
+              highlightColor={currentMapColor}
+              highlightTooltipData={currentMapData}
               onCountryHover={
-                (conversationSourceCard?.geoRegions?.length || conversationGeoHint?.regions.length)
+                currentMapRegions?.length
                   ? (name, note, x, y) => {
                       if (name) setGlobeTooltip({ name, note, x, y });
                       else setGlobeTooltip(null);
@@ -1187,11 +1246,12 @@ export default function HomePage() {
         >
           <FlatMapOverlay
             onClose={() => setFlatMapOpen(false)}
-            highlightRegions={conversationSourceCard?.geoRegions ?? conversationGeoHint?.regions ?? []}
-            highlightColor={conversationGeoHint && !conversationSourceCard ? conversationGeoHint.color : cardAccent}
-            highlightTooltipData={conversationSourceCard?.geoData ?? conversationGeoHint?.geoData}
+            highlightRegions={currentMapRegions ?? []}
+            highlightColor={currentMapColor}
+            highlightTooltipData={currentMapData}
             geoDetailData={conversationSourceCard?.geoDetailData ?? conversationGeoHint?.geoDetailData}
-            groupTitle={conversationSourceCard?.title ?? conversationGeoHint?.title}
+            groupTitle={activeRowData ? activeRowData.label : (conversationSourceCard?.title ?? conversationGeoHint?.title)}
+            viewMode={mapViewMode}
           />
         </div>
       )}
@@ -1353,15 +1413,18 @@ export default function HomePage() {
             </button>
 
             {/* Share */}
-            <button style={{
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "5px 13px",
-              background: "rgba(255,255,255,0.055)",
-              border: "1px solid rgba(255,255,255,0.10)",
-              borderRadius: 20, cursor: "pointer",
-              fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.65)",
-              letterSpacing: "0.02em",
-            }}>
+            <button
+              onClick={() => setShareOpen(true)}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "5px 13px",
+                background: "rgba(255,255,255,0.055)",
+                border: "1px solid rgba(255,255,255,0.10)",
+                borderRadius: 20, cursor: "pointer",
+                fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.65)",
+                letterSpacing: "0.02em",
+              }}
+            >
               <IconShare size={13} />
               Share
             </button>
@@ -1476,6 +1539,7 @@ export default function HomePage() {
               initialCountrySubset={narrativeSession.extractedParams?.geography ?? null}
               preloadedAnswer={preloadedInsight?.answer ?? null}
               preloadedFollowUps={preloadedInsight?.followUps ?? []}
+              onConvertToNarrative={handleCreateNarrative}
             />
           </div>
 
@@ -1530,29 +1594,66 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* ── Globe ↔ Flat map toggle ── */}
-          {!hideMap && !flatMapOpen && (
-            <button
-              onClick={() => { setFlatMapOpen((v) => !v); setGlobeTooltip(null); }}
-              style={{
-                position: "fixed",
-                bottom: 24, right: 28,
-                zIndex: 10,
-                display: "flex", alignItems: "center", gap: 6,
-                padding: "7px 14px",
-                background: "rgba(8,18,30,0.82)",
-                border: "1px solid rgba(255,255,255,0.12)",
-                borderRadius: 20, cursor: "pointer",
-                fontFamily: F, fontSize: 11, fontWeight: 600,
-                color: "rgba(255,255,255,0.60)",
-                letterSpacing: "0.03em",
-                backdropFilter: "blur(8px)",
-                WebkitBackdropFilter: "blur(8px)",
-                transition: "opacity 0.15s",
-              }}
-            >
-              {flatMapOpen ? "← Globe" : "Flat map →"}
-            </button>
+          {/* ── Map controls: Globe ↔ Flat map + Achieved/Expected toggle ── */}
+          {!hideMap && (
+            <div style={{
+              position: "fixed",
+              top: CONV_NAV_H + 16, right: 24,
+              zIndex: 10,
+              display: "flex", alignItems: "center", gap: 8,
+              fontFamily: F,
+            }}>
+              <button
+                onClick={() => { setFlatMapOpen((v) => !v); setGlobeTooltip(null); }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  padding: "6px 14px",
+                  background: "rgba(8,18,30,0.82)",
+                  border: `1px solid ${flatMapOpen ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.12)"}`,
+                  borderRadius: 20, cursor: "pointer",
+                  fontSize: 11, fontWeight: 600,
+                  color: flatMapOpen ? "rgba(255,255,255,0.80)" : "rgba(255,255,255,0.60)",
+                  letterSpacing: "0.03em",
+                  backdropFilter: "blur(8px)",
+                  WebkitBackdropFilter: "blur(8px)",
+                  transition: "border-color 0.15s, color 0.15s",
+                }}
+              >
+                {flatMapOpen ? "← Globe" : "Flat map →"}
+              </button>
+
+              {(activeRowData || (conversationGeoHint?.achievedRegions)) && (
+                <div style={{
+                  display: "flex",
+                  background: "rgba(8,18,30,0.82)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: 20,
+                  padding: 2,
+                  backdropFilter: "blur(8px)",
+                  WebkitBackdropFilter: "blur(8px)",
+                }}>
+                  {(["achieved", "expected"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      onClick={() => setMapViewMode(mode)}
+                      style={{
+                        padding: "4px 12px",
+                        borderRadius: 18,
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: 11, fontWeight: 600,
+                        letterSpacing: "0.03em",
+                        transition: "background 0.18s, color 0.18s",
+                        background: mapViewMode === mode ? "#3B82F6" : "transparent",
+                        color: mapViewMode === mode ? "#FFFFFF" : "rgba(255,255,255,0.50)",
+                      }}
+                    >
+                      {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </>
       ) : (
@@ -1566,12 +1667,18 @@ export default function HomePage() {
         workspaceCount={conversations.length}
         onOpenWorkspace={() => setView("workspace")}
         scrolled={homeScrolled || view !== "home"}
-        narrativeTitle={narrativeTitle || undefined}
+        narrativeTitle={rightPane === "narrative" && narrativeTitle ? narrativeTitle : undefined}
         onNarrativeTitleChange={setNarrativeTitle}
+        onLogoClick={goHome}
       />
 
       <main className="flex-1 w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10">
         <SearchHero />
+        {/* Sentinel: fires as soon as the hero content (heading + stats) leaves
+            the viewport — before the spacer below, so the bar docks promptly */}
+        <div ref={heroSentinelRef} style={{ height: 0 }} />
+        {/* Spacer reserves room for the floating prompt bar + pills */}
+        <div style={{ height: 130 }} />
         <QuickStartPills
           visible={view === "home" && !homeScrolled}
           onPillClick={(prompt) => {
@@ -1591,12 +1698,31 @@ export default function HomePage() {
         )}
 
         <FadeIn delay={25}>
-          <MomentumGroups onCardClick={(prompt, followUps, group) => {
-            handleSearchComplete(prompt);
-            // Re-set after handleSearchComplete so card state wins in React's batch
-            setConversationFollowUps(followUps);
-            setConversationSourceCard(group);
-          }} />
+          <MomentumGroups
+            onCardClick={(prompt, followUps, group) => {
+              setActiveRowData(null);
+              setMapViewMode("achieved");
+              handleSearchComplete(prompt);
+              setConversationFollowUps(followUps);
+              setConversationSourceCard(group);
+            }}
+            onRowClick={(row, group) => {
+              const virtualGroup = {
+                ...group,
+                title: row.label,
+                subtitle: `${row.achieved ?? row.delta} achieved · ${row.expected ?? ""}`.replace(/·\s*$/, "").trim(),
+                insight: row.insight ?? group.insight,
+                rows: [row],
+                geoRegions: row.achievedGeoRegions ?? group.geoRegions,
+                geoData: row.achievedGeoData ?? group.geoData,
+              };
+              setMapViewMode("achieved");
+              handleSearchComplete(row.label);
+              setConversationFollowUps(group.suggestedPrompts);
+              setConversationSourceCard(virtualGroup);
+              setActiveRowData(row);
+            }}
+          />
         </FadeIn>
 
         <FadeIn delay={50}>
@@ -1909,12 +2035,12 @@ export default function HomePage() {
             {detail ? (
               <div style={{ display: "flex", gap: 12, marginBottom: 6 }}>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: accentColor, lineHeight: 1.1 }}>{detail.achieved}</div>
-                  <div style={{ fontSize: 9.5, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 1 }}>Achieved</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.1, color: mapViewMode === "expected" ? "rgba(255,255,255,0.45)" : accentColor }}>{detail.achieved}</div>
+                  <div style={{ fontSize: 9.5, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 1 }}>Achieved (FY25)</div>
                 </div>
                 {detail.expected && (
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "rgba(255,255,255,0.45)", lineHeight: 1.1 }}>{detail.expected}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.1, color: mapViewMode === "expected" ? accentColor : "rgba(255,255,255,0.45)" }}>{detail.expected}</div>
                     <div style={{ fontSize: 9.5, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 1 }}>Expected</div>
                   </div>
                 )}
@@ -1972,6 +2098,14 @@ export default function HomePage() {
           </div>
         </div>
       )}
+
+      {/* ── Share modal ── */}
+      <ShareModal
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        variant={narrativeVariant === "results" ? "internal" : "external"}
+        conversationTitle={currentConversation?.title}
+      />
     </>
   );
 }

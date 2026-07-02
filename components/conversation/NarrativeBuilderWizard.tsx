@@ -45,6 +45,8 @@ interface Props {
   /** Called when the user clicks "Add to Narrative" on a guidance tip — triggers
    *  the section shimmer + score bump in the right-hand NarrativePanel. */
   onGuidanceDimension?: (dimensionNum: number) => void;
+  /** Called when the user clicks the Preview button. */
+  onPreview?: () => void;
 }
 
 function mapGeographyToCountryId(geo: string): string {
@@ -155,11 +157,16 @@ function AiText({ children }: { children: React.ReactNode }) {
 }
 
 function UserBubble({ text }: { text: string }) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [radius, setRadius] = React.useState(9999);
+  React.useLayoutEffect(() => {
+    if (ref.current) setRadius(ref.current.offsetHeight > 44 ? 18 : 9999);
+  }, [text]);
   return (
     <div className="self-end narrative-content-enter" style={{ display: "flex", alignItems: "flex-end", gap: 10, maxWidth: "72%" }}>
-      <div style={{
+      <div ref={ref} style={{
         background: "rgba(100, 116, 139, 0.35)",
-        borderRadius: 20,
+        borderRadius: radius,
         padding: "10px 16px",
         fontSize: 13.5,
         color: "rgba(226, 232, 240, 0.95)",
@@ -453,7 +460,7 @@ function ChallengeCard({
       onClick={onClick}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
       style={{
-        width: 300, height: 420, display: "flex", flexDirection: "column",
+        width: 300, minHeight: 420, display: "flex", flexDirection: "column",
         borderRadius: 16, border: `1px solid ${borderColor}`,
         background: selected ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.03)",
         cursor: "pointer", overflow: "hidden",
@@ -494,7 +501,7 @@ function ChallengeCard({
         <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.55)", fontFamily: "'Open Sans', sans-serif", marginBottom: 6 }}>
           Summary
         </p>
-        <p style={{ fontSize: 12, lineHeight: 1.6, color: "rgba(255,255,255,0.75)", fontFamily: "'Open Sans', sans-serif", display: "-webkit-box", WebkitLineClamp: 5, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+        <p style={{ fontSize: 12, lineHeight: 1.6, color: "rgba(255,255,255,0.75)", fontFamily: "'Open Sans', sans-serif" }}>
           {challenge.summary}
         </p>
         <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 8 }}>
@@ -556,7 +563,7 @@ function ChallengeCard({
               onMouseLeave={(e) => { e.currentTarget.style.background = selected ? "rgba(10,20,35,0.85)" : "rgba(10,20,35,0.92)"; }}
             >
               <IconSparkles size={12} style={{ opacity: 0.85 }} />
-              Explore
+              Generate
             </button>
           </div>
         </div>
@@ -677,7 +684,7 @@ const REGION_OPTIONS = [
   { id: "lac",  label: "Latin America & Caribbean" },
 ];
 
-export default function NarrativeBuilderWizard({ onComplete, inputRef, initialOutcomeArea, initialCountrySubset, onContextChipsChange, contextActionRef, onPrefillPrompt, onSetGuidanceReply, onGuidanceDimension }: Props) {
+export default function NarrativeBuilderWizard({ onComplete, inputRef, initialOutcomeArea, initialCountrySubset, onContextChipsChange, contextActionRef, onPrefillPrompt, onSetGuidanceReply, onGuidanceDimension, onPreview }: Props) {
   const initialCountryId = initialCountrySubset ? mapGeographyToCountryId(initialCountrySubset) : null;
   const initialIsRegion = initialCountryId ? REGION_OPTIONS.some((r) => r.id === initialCountryId) : false;
 
@@ -819,7 +826,18 @@ export default function NarrativeBuilderWizard({ onComplete, inputRef, initialOu
     setSelectedChallengeId(id);
     setExploringChallenge(challenge);
     setShowRefinePrompt(false);
-    setPhase("q3-thinking");
+    onComplete({
+      outcomeAreaIds: [],
+      countrySubset: countrySubset ?? "all-ida",
+      challenge,
+      narrativeMeta: {
+        title: challenge.shortTitle,
+        audience: "IDA Senior Management",
+        readTime: "~3 min",
+        tonality: "Evidence-based",
+      },
+    });
+    setTimeout(() => setShowRefinePrompt(true), 4600);
   };
 
   const handleExploreCreate = () => {
@@ -1058,7 +1076,6 @@ export default function NarrativeBuilderWizard({ onComplete, inputRef, initialOu
       {/* Explore detail — round 0 */}
       {phase === "q3-exploring" && exploringChallenge && exploreReturnCount === 0 && (() => {
         const c = exploringChallenge;
-        const strength = narrativeStrength(c);
         return (
           <AiBlock>
             <AiText>{c.summary}</AiText>
@@ -1072,9 +1089,7 @@ export default function NarrativeBuilderWizard({ onComplete, inputRef, initialOu
               <strong style={{ color: "rgba(255,255,255,0.62)", fontWeight: 700 }}>{c.movementTag}</strong>
               {" — "}
               {c.indicatorMovement.charAt(0).toLowerCase() + c.indicatorMovement.slice(1)}
-              {". The challenge carries a "}
-              <strong style={{ color: "rgba(255,255,255,0.62)", fontWeight: 700 }}>{strength.toLowerCase()}</strong>
-              {" narrative overall, based on evidence density and country coverage."}
+              {"."}
             </p>
           </AiBlock>
         );
@@ -1115,7 +1130,6 @@ export default function NarrativeBuilderWizard({ onComplete, inputRef, initialOu
       {/* Explore detail — after returning from first explore */}
       {phase === "q3-exploring" && exploringChallenge && exploreReturnCount > 0 && (() => {
         const c = exploringChallenge;
-        const strength = narrativeStrength(c);
         return (
           <AiBlock>
             <AiText>{c.summary}</AiText>
@@ -1129,9 +1143,7 @@ export default function NarrativeBuilderWizard({ onComplete, inputRef, initialOu
               <strong style={{ color: "rgba(255,255,255,0.62)", fontWeight: 700 }}>{c.movementTag}</strong>
               {" — "}
               {c.indicatorMovement.charAt(0).toLowerCase() + c.indicatorMovement.slice(1)}
-              {". The challenge carries a "}
-              <strong style={{ color: "rgba(255,255,255,0.62)", fontWeight: 700 }}>{strength.toLowerCase()}</strong>
-              {" narrative overall, based on evidence density and country coverage."}
+              {"."}
             </p>
           </AiBlock>
         );
@@ -1170,7 +1182,7 @@ export default function NarrativeBuilderWizard({ onComplete, inputRef, initialOu
                 ))}
               </ul>
               <p style={{ margin: "8px 0 0", fontSize: 13, fontFamily: F, lineHeight: 1.6, color: "rgba(255,255,255,0.55)" }}>
-                Review each section in the panel to the right. The <strong style={{ color: "rgba(255,255,255,0.72)", fontWeight: 600 }}>Narrative Strength</strong> score tracks how well each dimension holds up against the Authenticity Rubric — it updates as you work through the guidance below.
+                Review each section in the panel to the right and work through the guidance below to strengthen the narrative before sharing.
               </p>
             </AiBlock>
 

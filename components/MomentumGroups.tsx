@@ -1,5 +1,5 @@
 
-import { momentumGroups, type MomentumGroup } from "@/lib/mockData";
+import { momentumGroups, type MomentumGroup, type MomentumRow } from "@/lib/mockData";
 
 const F = "'Open Sans', sans-serif";
 
@@ -30,9 +30,10 @@ const BAR_COLOR: Record<MomentumGroup["id"], string> = {
 
 interface Props {
   onCardClick?: (prompt: string, followUps: string[], group: MomentumGroup) => void;
+  onRowClick?: (row: MomentumRow, group: MomentumGroup) => void;
 }
 
-export default function MomentumGroups({ onCardClick }: Props = {}) {
+export default function MomentumGroups({ onCardClick, onRowClick }: Props = {}) {
   return (
     <section aria-label="Latest Indicator Movements" style={{ marginBottom: 40 }}>
       <svg width="0" height="0" aria-hidden="true" style={{ position: "absolute", pointerEvents: "none" }}>
@@ -187,12 +188,19 @@ export default function MomentumGroups({ onCardClick }: Props = {}) {
         .mg-card-row {
           --mg-row-divider: rgba(255,255,255,0.10);
           border-bottom: 1px solid var(--mg-row-divider);
-          transition: border-color 500ms ease;
+          transition: border-color 500ms ease, background 0.14s ease;
+          border-radius: 6px;
         }
         .mg-card-row:last-child { border-bottom: none; }
         .mg-card:hover .mg-card-row,
         .mg-card:focus-within .mg-card-row {
           --mg-row-divider: rgba(255,255,255,0.18);
+        }
+        .mg-card-row-clickable {
+          cursor: pointer;
+        }
+        .mg-card-row-clickable:hover {
+          background: rgba(255,255,255,0.06);
         }
 
         /* Icon crossfade */
@@ -295,7 +303,7 @@ export default function MomentumGroups({ onCardClick }: Props = {}) {
             <article
               className="mg-card"
               style={{
-                ["--mg-card-color" as string]: barColor,
+                ["--mg-card-color" as string]: g.id === "accelerating" ? "#059669" : barColor,
                 ["--mg-bar-color" as string]: barColor,
               }}
             >
@@ -312,14 +320,20 @@ export default function MomentumGroups({ onCardClick }: Props = {}) {
                   {g.rows.map((r) => {
                     const achieved = parseNum(r.achieved);
                     const expected = parseNum(r.expected);
-                    const maxVal = Math.max(achieved, expected, 1);
-                    const achievedPct = (achieved / maxVal) * 100;
-                    const expectedPct = (expected / maxVal) * 100;
+                    // Expected bar is always full height; achieved is relative to expected.
+                    // Clamp achieved to [10, 92] so the gap is always legible.
+                    const rawPct = expected > 0 ? (achieved / expected) * 100 : 100;
+                    const achievedPct = Math.min(Math.max(rawPct, 10), 92);
+                    const expectedPct = 100;
                     return (
                       <li
                         key={r.label}
-                        className="mg-card-row"
+                        className={`mg-card-row${onRowClick ? " mg-card-row-clickable" : ""}`}
                         style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0" }}
+                        onClick={onRowClick ? (e) => { e.stopPropagation(); onRowClick(r, g); } : undefined}
+                        role={onRowClick ? "button" : undefined}
+                        tabIndex={onRowClick ? 0 : undefined}
+                        onKeyDown={onRowClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onRowClick(r, g); } } : undefined}
                       >
                         {/* Icon */}
                         <span className="mg-icon-wrap" aria-hidden="true">
@@ -332,16 +346,17 @@ export default function MomentumGroups({ onCardClick }: Props = {}) {
                           {r.label}
                         </span>
 
-                        {/* Two vertical bars + values */}
+                        {/* Two bars: achieved + expected */}
                         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                          {/* Grouped bars */}
-                          <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 38 }}>
+                          <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 38 }}>
                             {/* Achieved bar */}
                             <div style={{ width: 4, height: 38, borderRadius: 2, background: "rgba(255,255,255,0.12)", position: "relative", overflow: "hidden", flexShrink: 0 }}>
-                              <div className="mg-vbar-fill" style={{ height: `${achievedPct}%` }} />
+                              <div className="mg-vbar-fill" style={{ height: `${achievedPct}%`, opacity: g.id === "slowing" ? 0.55 : 1 }} />
                             </div>
-                            {/* Expected bar — scales relative to max */}
-                            <div style={{ width: 4, height: `${expectedPct}%`, maxHeight: 38, borderRadius: 2, background: "rgba(255,255,255,0.30)", flexShrink: 0 }} />
+                            {/* Expected bar */}
+                            {r.expected && (
+                              <div style={{ width: 4, height: `${Math.min(expectedPct, 100)}%`, borderRadius: 2, background: "rgba(255,255,255,0.30)", flexShrink: 0 }} />
+                            )}
                           </div>
                           <div style={{ display: "flex", flexDirection: "column" }}>
                             <div style={{ display: "flex", alignItems: "baseline" }}>

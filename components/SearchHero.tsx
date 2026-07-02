@@ -21,9 +21,6 @@ export default function SearchHero() {
       </div>
 
       <ScorecardStats />
-
-      {/* Spacer so the fixed prompt bar + pills float above page content */}
-      <div style={{ height: 130 }} />
     </section>
   );
 }
