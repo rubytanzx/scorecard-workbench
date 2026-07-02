@@ -149,7 +149,7 @@ export default function QuickStartPills({ visible, onPillClick, onCreateResultsN
           pointerEvents: "auto",
         }}
       >
-        {ACTION_MENUS.map((menu) => {
+        {ACTION_MENUS.filter((menu) => menu.id !== "narrative").map((menu) => {
           const Icon = MENU_ICONS[menu.id];
           const isOpen = openMenu === menu.id;
           return (

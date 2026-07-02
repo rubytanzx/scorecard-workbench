@@ -1,6 +1,5 @@
 
 import { useState, useRef, useEffect } from "react";
-import { Link } from "react-router-dom";
 import { IconChevronDown, IconLogout, IconSettings, IconLogin, IconPencil } from "@tabler/icons-react";
 import { useViewMode } from "@/contexts/ViewModeContext";
 
@@ -25,6 +24,7 @@ interface Props {
   /** When set, replaces "Scorecard Workbench" with an editable narrative title. */
   narrativeTitle?: string;
   onNarrativeTitleChange?: (title: string) => void;
+  onLogoClick?: () => void;
 }
 
 function WBGLogo() {
@@ -38,7 +38,7 @@ function WBGLogo() {
   );
 }
 
-export default function AppHeader({ workspaceCount = 0, onOpenWorkspace, scrolled = false, narrativeTitle, onNarrativeTitleChange }: Props) {
+export default function AppHeader({ workspaceCount = 0, onOpenWorkspace, scrolled = false, narrativeTitle, onNarrativeTitleChange, onLogoClick }: Props) {
   const { isInternal, signOut, signIn } = useViewMode();
   const [activeTab, setActiveTab] = useState("for-you");
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -109,12 +109,25 @@ export default function AppHeader({ workspaceCount = 0, onOpenWorkspace, scrolle
       <div className="max-w-[1440px] mx-auto px-[24px] h-[72px] grid grid-cols-[1fr_auto_1fr] items-end gap-4">
         {/* Brand */}
         <div className="justify-self-start self-center flex items-center gap-3 shrink-0">
-          <Link to="/" className="flex items-center shrink-0">
+          <button
+            onClick={onLogoClick}
+            className="flex items-center shrink-0 bg-transparent border-none cursor-pointer p-0"
+            aria-label="Go to home"
+          >
             <WBGLogo />
-          </Link>
-          <div className="w-px h-4 bg-white/30" />
-          {narrativeTitle ? (
-            titleEditing ? (
+          </button>
+          {!narrativeTitle && (
+            <>
+              <div className="w-px h-4 bg-white/30" />
+              <span className="text-[13px] font-semibold text-white tracking-tight">Scorecard Workbench</span>
+            </>
+          )}
+        </div>
+
+        {/* Center: editable narrative title OR nav tabs */}
+        {narrativeTitle ? (
+          <div className="justify-self-center self-center">
+            {titleEditing ? (
               <input
                 ref={titleInputRef}
                 value={titleDraft}
@@ -122,25 +135,21 @@ export default function AppHeader({ workspaceCount = 0, onOpenWorkspace, scrolle
                 onBlur={commitTitleEdit}
                 onKeyDown={(e) => { if (e.key === "Enter") commitTitleEdit(); if (e.key === "Escape") setTitleEditing(false); }}
                 autoFocus
-                className="bg-transparent text-[13px] font-semibold text-white tracking-tight outline-none border-b border-white/40 focus:border-white/70 min-w-[120px]"
-                style={{ maxWidth: 320 }}
+                className="bg-transparent text-[15px] font-semibold text-white tracking-tight outline-none border-b border-white/40 focus:border-white/70 text-center"
+                style={{ minWidth: 120, maxWidth: 480 }}
               />
             ) : (
               <button
                 onClick={startTitleEdit}
                 title="Click to rename"
-                className="group flex items-center gap-1.5 text-[13px] font-semibold text-white tracking-tight hover:text-white/90 transition-colors"
+                className="group flex items-center gap-2 text-[15px] font-semibold text-white tracking-tight hover:text-white/90 transition-colors"
               >
                 <span className="border-b border-transparent group-hover:border-white/30 transition-colors">{narrativeTitle}</span>
-                <IconPencil size={11} className="opacity-0 group-hover:opacity-50 transition-opacity shrink-0" />
+                <IconPencil size={12} className="opacity-0 group-hover:opacity-50 transition-opacity shrink-0" />
               </button>
-            )
-          ) : (
-            <span className="text-[13px] font-semibold text-white tracking-tight">Scorecard Workbench</span>
-          )}
-        </div>
-
-        {/* Nav */}
+            )}
+          </div>
+        ) : (
         <nav className="justify-self-center flex items-end gap-1" aria-label="Main navigation">
           {NAV_TABS.map((tab) => {
             const isActive = activeTab === tab.id;
@@ -211,6 +220,7 @@ export default function AppHeader({ workspaceCount = 0, onOpenWorkspace, scrolle
             );
           })}
         </nav>
+        )}
 
         {/* User profile / Sign In */}
         {isInternal ? (

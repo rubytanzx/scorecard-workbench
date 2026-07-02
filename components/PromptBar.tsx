@@ -193,6 +193,19 @@ export default function PromptBar({
     timers.current.push(setTimeout(() => onComplete?.(v), holdMs));
   };
 
+  const submitDirect = (text: string) => {
+    if (!text.trim() || isBottom) return;
+    onChange(text);
+    onSubmit?.();
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+    timers.current.push(setTimeout(() => {
+      setSubmitted(false);
+      requestAnimationFrame(() => setSubmitted(true));
+    }, 0));
+    timers.current.push(setTimeout(() => onComplete?.(text), holdMs));
+  };
+
   const submit = async () => {
     const v = value.trim();
     if (!v) return;
@@ -384,9 +397,9 @@ export default function PromptBar({
                 borderRadius: 100,
                 fontSize: 12.5,
                 fontFamily: "'Open Sans', sans-serif",
-                border: "1px solid rgba(255,255,255,0.18)",
-                background: "rgba(255,255,255,0.07)",
-                color: "rgba(255,255,255,0.82)",
+                border: "1px solid rgba(255,255,255,0.22)",
+                background: "rgba(80,90,105,0.88)",
+                color: "rgba(255,255,255,0.90)",
                 cursor: "pointer",
                 transition: "all 0.15s ease",
               }}
@@ -463,6 +476,7 @@ export default function PromptBar({
         ref={formRef}
         id="madlibs-card"
         onSubmit={(e) => { e.preventDefault(); submit(); }}
+        onDoubleClick={!isBottom ? () => submitDirect("What proportion of Scorecard results in IDA countries is being achieved with Norway's money?") : undefined}
         className={`fixed ${suppressTransition ? "" : "transition-[left,width] duration-[900ms]"}`}
         style={{
           left: leftCss,

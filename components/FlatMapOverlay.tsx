@@ -17,6 +17,7 @@ export interface FlatMapOverlayProps {
   highlightTooltipData?: Record<string, string>;
   geoDetailData?: Record<string, GeoCountryDetail>;
   groupTitle?: string;
+  viewMode?: "achieved" | "expected";
 }
 
 export default function FlatMapOverlay({
@@ -26,6 +27,7 @@ export default function FlatMapOverlay({
   highlightTooltipData,
   geoDetailData,
   groupTitle,
+  viewMode = "achieved",
 }: FlatMapOverlayProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [features, setFeatures] = useState<any[]>([]);
@@ -180,12 +182,12 @@ export default function FlatMapOverlay({
             {hoverDetail ? (
               <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginBottom: 4 }}>
                 <div>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: highlightColor }}>{hoverDetail.achieved}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: viewMode === "expected" ? "rgba(255,255,255,0.38)" : highlightColor }}>{hoverDetail.achieved}</span>
                   <span style={{ fontSize: 9.5, color: "rgba(255,255,255,0.4)", marginLeft: 3, textTransform: "uppercase", letterSpacing: "0.04em" }}>achieved</span>
                 </div>
                 {hoverDetail.expected && (
                   <div>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.38)" }}>{hoverDetail.expected}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: viewMode === "expected" ? highlightColor : "rgba(255,255,255,0.38)" }}>{hoverDetail.expected}</span>
                     <span style={{ fontSize: 9.5, color: "rgba(255,255,255,0.4)", marginLeft: 3, textTransform: "uppercase", letterSpacing: "0.04em" }}>expected</span>
                   </div>
                 )}
@@ -281,12 +283,12 @@ export default function FlatMapOverlay({
                     </div>
                   )}
                   <div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: highlightColor, lineHeight: 1 }}>{detail.achieved}</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1, color: viewMode === "expected" ? "rgba(255,255,255,0.42)" : highlightColor }}>{detail.achieved}</div>
                     <div style={{ fontSize: 9.5, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 3 }}>Achieved (FY25)</div>
                   </div>
                   {detail.expected && (
                     <div>
-                      <div style={{ fontSize: 18, fontWeight: 700, color: "rgba(255,255,255,0.42)", lineHeight: 1 }}>{detail.expected}</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1, color: viewMode === "expected" ? highlightColor : "rgba(255,255,255,0.42)" }}>{detail.expected}</div>
                       <div style={{ fontSize: 9.5, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: 3 }}>Expected</div>
                     </div>
                   )}

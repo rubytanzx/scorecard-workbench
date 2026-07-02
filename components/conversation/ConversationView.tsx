@@ -24,6 +24,8 @@ import {
   IconPhoto,
   IconPlus,
   IconQuote,
+  IconLock,
+  IconBook2,
 } from "@tabler/icons-react";
 import {
   ResponsiveContainer,
@@ -33,7 +35,10 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  ReferenceLine,
+  Cell,
 } from "recharts";
+import { useViewMode } from "@/contexts/ViewModeContext";
 import type { NarrativePhase } from "../../app/page";
 import type { MomentumGroup } from "../../lib/mockData";
 import NarrativeSkeletonChoice from "./NarrativeSkeletonChoice";
@@ -43,6 +48,7 @@ import NarrativeConverse from "./NarrativeConverse";
 import NarrativeBuilderWizard, { type NarrativeBuilderResult } from "./NarrativeBuilderWizard";
 import DonorNarrativeWizard from "./DonorNarrativeWizard";
 import type { NarrativeSkeleton } from "./NarrativeSkeletons";
+import { ACTION_MENUS } from "@/data/goldenPrompts";
 
 const F = "'Open Sans', sans-serif";
 
@@ -170,6 +176,8 @@ interface Props {
   preloadedAnswer?: string | null;
   /** Suggested follow-ups shown beneath a preloaded answer. */
   preloadedFollowUps?: string[];
+  /** Called when the user clicks "Convert into a narrative" after an AI response. */
+  onConvertToNarrative?: () => void;
 }
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
@@ -186,7 +194,8 @@ export type FlowId =
   | "fy24-fy25-delta"
   | "hnp-measurement"
   | "methods-taxonomy"
-  | "methods-compilation";
+  | "methods-compilation"
+  | "norway-donor";
 
 export function detectFlow(prompt: string): FlowId {
   const t = prompt.toLowerCase();
@@ -220,6 +229,7 @@ export function detectFlow(prompt: string): FlowId {
     t.includes("difference in results between fy24") ||
     (t.includes("year-over-year") && t.includes("scorecard"))
   ) return "fy24-fy25-delta";
+  if (t.includes("norway") && t.includes("proportion")) return "norway-donor";
   if (
     t.includes("electricity") ||
     t.includes("energy access") ||
@@ -548,6 +558,29 @@ const FLOW_CONTENT: Record<FlowId, FlowContent> = {
       "Results Handbook — annual reporting cycle, data flow, and governance",
       "Scorecard Methodology Notes — per-indicator aggregation and counting rules",
       "IDMS Metadata — CRI tagging structure and ISR filing fields",
+    ],
+  },
+  "norway-donor": {
+    title: "Norway's share of IDA results",
+    defaultPrompt: "What proportion of Scorecard results in IDA countries is being achieved with Norway's money?",
+    leadAnswer:
+      "Norway's IDA21 subscription of $1.97B represents 4.3% of total donor contributions. On a proportional attribution basis, this maps to approximately 12.5 million of the 292 million beneficiaries reached through Scorecard indicators in IDA countries in FY25.",
+    bodyText:
+      "IDA does not attribute specific project results to individual donors — all contributions go into a common pool. Proportional attribution divides Norway's share of IDA21 subscriptions (4.3%) across the aggregate IDA results for each indicator. Across the People pillar, Norway's attributed share covers an estimated 5.2M people reached with health services, 4.1M students supported, and 3.2M beneficiaries of social safety nets. On climate and infrastructure, the proportional share is smaller in absolute terms but Norway's priorities in fragile and conflict-affected states mean a higher concentration of attributed results come from FCS countries — roughly 38% vs 24% for the wider IDA portfolio.",
+    filterCaption: "Proportional attribution — Norway IDA21 subscription share (4.3%) applied to FY25 IDA aggregate results",
+    chartTitle: "Norway's attributed share — FY25 IDA indicators",
+    signalsHeader: "Donor attribution signals",
+    continueExploring: [
+      "How does Norway's share compare to other Nordic donors?",
+      "Which IDA financing windows does Norway's funding flow through?",
+      "How does Norway's food security priority align with Scorecard indicators?",
+      "Show Norway's attributed results in FCS countries specifically",
+    ],
+    sources: [
+      "IDA21 Replenishment Agreement — donor subscription schedule",
+      "FY25 IDA Results aggregate · Achieved_Results by indicator",
+      "Scorecard Metadata · Double_Counting_Flag and country eligibility",
+      "IDA Results Measurement System — proportional attribution methodology",
     ],
   },
 };
@@ -1045,6 +1078,313 @@ function YoYDeltaChart({ title, disabled = false }: { title: string; disabled?: 
             ? `Indicator code: ${hovered}`
             : `${rows.length} indicator${rows.length === 1 ? "" : "s"} · FY25 − FY24 delta · hover rows for code`}
       </div>
+    </div>
+  );
+}
+
+// ─── Analytics Engine: Comparative Response ──────────────────────────────────
+// Structured three-layer comparative response for the fy24-fy25-delta flow.
+// Mirrors the Analytics Engine spec: headline → ranked chart → synthesis →
+// Layer 1 (portfolio) → Layer 2 (common cohort) → Layer 3 (project drivers) →
+// methodology / provenance → follow-up prompts.
+
+const LAYER_BADGE: Record<string, { bg: string; color: string; border: string }> = {
+  "Layer 1": { bg: "#EEF2FF", color: "#4338CA", border: "#C7D2FE" },
+  "Layer 2": { bg: "#F5F3FF", color: "#6D28D9", border: "#DDD6FE" },
+  "Layer 3": { bg: "#EFF6FF", color: "#1D4ED8", border: "#BFDBFE" },
+};
+
+function LayerBadge({ label }: { label: string }) {
+  const s = LAYER_BADGE[label] ?? LAYER_BADGE["Layer 1"];
+  return (
+    <span style={{
+      fontSize: 9.5, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
+      background: s.bg, color: s.color, border: `1px solid ${s.border}`,
+      textTransform: "uppercase", letterSpacing: "0.07em", flexShrink: 0,
+    }}>
+      {label}
+    </span>
+  );
+}
+
+const PORTFOLIO_STATS = {
+  fy24: { projects: 412, indicators: 8, doubleFlagged: "9.4%" },
+  fy25: { projects: 438, indicators: 8, doubleFlagged: "8.7%" },
+};
+
+const RANKED_DELTA_DATA = [
+  { name: "Broadband users",      delta: 99  },
+  { name: "Health services",      delta: 12  },
+  { name: "Students supported",   delta: 12  },
+  { name: "Conservation",         delta: 12  },
+  { name: "Social safety nets",   delta: 12  },
+  { name: "Electricity access",   delta: 5   },
+  { name: "Climate resilience",   delta: -2  },
+  { name: "Tax-to-GDP",           delta: -3  },
+].sort((a, b) => b.delta - a.delta);
+
+const WBG_AVG_DELTA = Math.round(
+  RANKED_DELTA_DATA.reduce((s, d) => s + d.delta, 0) / RANKED_DELTA_DATA.length
+);
+
+function RankedDeltaChart() {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[13px] font-semibold text-gray-800">Year-on-year change by indicator</span>
+        <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
+          <span className="inline-block w-8 border-t-2 border-dashed border-gray-400" />
+          WBG average ({WBG_AVG_DELTA > 0 ? "+" : ""}{WBG_AVG_DELTA}%)
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={220}>
+        <BarChart
+          data={RANKED_DELTA_DATA}
+          layout="vertical"
+          margin={{ top: 0, right: 48, bottom: 0, left: 112 }}
+          barSize={12}
+        >
+          <CartesianGrid horizontal={false} stroke="#F1F5F9" />
+          <XAxis
+            type="number"
+            tickFormatter={(v) => `${v > 0 ? "+" : ""}${v}%`}
+            tick={{ fontSize: 10.5, fill: "#94a3b8" }}
+            axisLine={false}
+            tickLine={false}
+            domain={["dataMin - 5", "dataMax + 5"]}
+          />
+          <YAxis
+            type="category"
+            dataKey="name"
+            tick={{ fontSize: 11.5, fill: "#475569" }}
+            axisLine={false}
+            tickLine={false}
+            width={108}
+          />
+          <Tooltip
+            cursor={{ fill: "rgba(0,0,0,0.03)" }}
+            formatter={(v) => [`${Number(v) > 0 ? "+" : ""}${v}%`, "YoY change"]}
+            contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }}
+          />
+          <ReferenceLine
+            x={WBG_AVG_DELTA}
+            stroke="#94a3b8"
+            strokeDasharray="4 3"
+            strokeWidth={1.5}
+            label={{ value: `avg`, position: "insideTopRight", fontSize: 9.5, fill: "#94a3b8", dy: -4 }}
+          />
+          <Bar dataKey="delta" radius={[0, 3, 3, 0]}>
+            {RANKED_DELTA_DATA.map((d) => (
+              <Cell key={d.name} fill={d.delta >= 0 ? "#5B5BD6" : "#F87171"} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+
+const PROJECT_DRIVERS = [
+  { name: "HNP Services (SSA)",    code: "P174623", contribution: "+18M", direction: "up"   as const, indicator: "Health services"    },
+  { name: "Education SSA II",      code: "P175802", contribution: "+14M", direction: "up"   as const, indicator: "Students supported"  },
+  { name: "Safety Net Scale-Up",   code: "P178910", contribution: "+11M", direction: "up"   as const, indicator: "Social safety nets"  },
+  { name: "Digital Connect LAC",   code: "P180041", contribution: "+52M", direction: "up"   as const, indicator: "Broadband users"     },
+  { name: "Electricity FCS Niger", code: "P171334", contribution: "−3M",  direction: "down" as const, indicator: "Electricity access"  },
+  { name: "Climate Action YEM",    code: "P179220", contribution: "−4M",  direction: "down" as const, indicator: "Climate resilience"  },
+];
+
+const NON_CONTRIBUTING = [
+  { name: "West Africa Agri Dev",      code: "P176201", reason: "No ISR filed (FY25)"              },
+  { name: "MENA Water Access III",     code: "P172844", reason: "Closed before June 2025 cut-off"  },
+  { name: "East Africa Transport",     code: "P169903", reason: "Out-of-scope indicator tag"        },
+  { name: "SAR Resilience SOP-2",      code: "P181122", reason: "Pipeline — not yet disbursing"     },
+  { name: "Digital Govt Bolivia",      code: "P173560", reason: "Results reported under parent P"   },
+];
+
+function DonorAttributionStats({ disabled = false }: { disabled?: boolean }) {
+  const stats = [
+    { label: "Norway's IDA21 subscription", value: "$1.97B" },
+    { label: "Share of total donor contributions", value: "4.3%" },
+    { label: "Attributed beneficiaries (FY25)", value: "~12.5M" },
+    { label: "Results in FCS countries", value: "38%" },
+  ];
+  const breakdown = [
+    { label: "People reached with health services", value: "~5.2M" },
+    { label: "Students supported", value: "~4.1M" },
+    { label: "Social safety net beneficiaries", value: "~3.2M" },
+  ];
+  return (
+    <div className={`flex flex-col gap-4 ${disabled ? "opacity-40 pointer-events-none" : ""}`}>
+      <div className="grid grid-cols-2 gap-3">
+        {stats.map((s) => (
+          <div key={s.label} className="bg-gray-50 rounded-xl p-4">
+            <div className="text-[22px] font-bold text-gray-900 leading-none">{s.value}</div>
+            <div className="text-[12px] text-gray-500 mt-1.5 leading-snug">{s.label}</div>
+          </div>
+        ))}
+      </div>
+      <div className="border border-gray-100 rounded-xl overflow-hidden">
+        <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">People pillar attribution</span>
+        </div>
+        {breakdown.map((b) => (
+          <div key={b.label} className="flex items-center justify-between px-4 py-3 border-b border-gray-100 last:border-0">
+            <span className="text-[13px] text-gray-700">{b.label}</span>
+            <span className="text-[13px] font-semibold text-gray-900">{b.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ComparativeAnalyticsResponse({ disabled, leadDone }: { disabled: boolean; leadDone: boolean }) {
+  const [showDriverCodes, setShowDriverCodes] = useState(false);
+  const [showNonContrib, setShowNonContrib] = useState(false);
+  const { isInternal } = useViewMode();
+
+  return (
+    <div className="flex flex-col gap-5" style={{ opacity: leadDone ? 1 : 0, transition: "opacity 0.7s" }}>
+
+      {/* Ranked bar chart */}
+      <RankedDeltaChart />
+
+      {/* Synthesis */}
+      <p className="text-[13.5px] text-gray-700 leading-relaxed">
+        <strong className="font-semibold text-gray-900">Broadband (+99%)</strong> is the widest gainer, doubling off a small base.{" "}
+        <strong className="font-semibold text-gray-900">Climate resilience and Tax-to-GDP</strong> are the only two indicators that declined.
+        The People pillar's consistent +12% was not driven by more projects — projects that were already active matured and delivered more, and fewer beneficiaries were counted more than once compared to the prior year.
+      </p>
+
+      {/* Portfolio stats */}
+      <div className="grid grid-cols-2 gap-3">
+        {(["fy24", "fy25"] as const).map((fy) => {
+          const s = PORTFOLIO_STATS[fy];
+          return (
+            <div key={fy} className="bg-gray-50 rounded-lg p-3 flex flex-col gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{fy.toUpperCase()}</span>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[11.5px] text-gray-500">Active projects</span>
+                  <span className="text-[13.5px] font-bold text-gray-900 tabular-nums">{s.projects}</span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[11.5px] text-gray-500">Indicators reported</span>
+                  <span className="text-[13.5px] font-bold text-gray-900 tabular-nums">{s.indicators}</span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[11.5px] text-gray-500">Deduplicated rows</span>
+                  <span className="text-[13.5px] font-bold text-gray-900 tabular-nums">{s.doubleFlagged}</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="text-[13px] text-gray-600 leading-relaxed">
+        FY25 added <strong className="text-gray-800">26 net-new projects</strong>, a 6.3% increase. Where the same beneficiary was reached by more than one project, only one instance was counted — this deduplication rate improved slightly year-on-year.
+        Electricity access is a notable exception: fewer projects reported to this indicator in FY25, yet total reach still rose by 10 million people because the remaining projects were larger on average and operating outside fragile settings.
+      </p>
+
+      {/* Common cohort */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-gray-50 rounded-lg p-3 flex flex-col gap-1.5">
+          <span className="text-[10.5px] text-gray-400 leading-snug">Projects active in both FY24 and FY25 <span className="text-gray-300">· 347 projects</span></span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-[18px] font-bold text-gray-900 tabular-nums">1,512M</span>
+            <span className="text-[11px] font-semibold text-emerald-600">+9.1%</span>
+          </div>
+          <span className="text-[10.5px] text-gray-400">FY24: 1,386M people</span>
+        </div>
+        <div className="bg-gray-50 rounded-lg p-3 flex flex-col gap-1.5">
+          <span className="text-[10.5px] text-gray-400 leading-snug">All active projects in FY25 <span className="text-gray-300">· full portfolio</span></span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-[18px] font-bold text-gray-900 tabular-nums">1,569M</span>
+            <span className="text-[11px] font-semibold text-emerald-600">+57M</span>
+          </div>
+          <span className="text-[10.5px] text-gray-400">from 91 new FY25 entrants</span>
+        </div>
+      </div>
+
+      <p className="text-[13px] text-gray-600 leading-relaxed">
+        The 347 projects active in both years account for 88% of total reach. Their +9.1% gain explains most of the People-pillar improvement — projects that entered the portfolio for the first time in FY25 contributed the remaining 3 percentage points.
+      </p>
+
+      {/* Project-level drivers */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Top drivers</span>
+          {isInternal && (
+            <button
+              onClick={() => !disabled && setShowDriverCodes((v) => !v)}
+              className="text-[11.5px] text-blue-600 hover:text-blue-800 transition-colors"
+              disabled={disabled}
+            >
+              {showDriverCodes ? "Hide codes" : "Show project codes"}
+            </button>
+          )}
+        </div>
+        <div className="flex flex-col divide-y divide-gray-100">
+          {PROJECT_DRIVERS.map((p) => (
+            <div key={p.code} className="flex items-center gap-3 py-2">
+              <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${p.direction === "up" ? "bg-emerald-500" : "bg-red-400"}`} />
+              <div className="flex-1 min-w-0">
+                <div className="text-[12.5px] font-medium text-gray-800 truncate">{p.name}</div>
+                <div className="text-[11px] text-gray-400">{p.indicator}</div>
+              </div>
+              {isInternal && showDriverCodes && (
+                <code className="text-[10.5px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded shrink-0">{p.code}</code>
+              )}
+              <span className={`text-[12.5px] font-bold tabular-nums shrink-0 ${p.direction === "up" ? "text-emerald-700" : "text-red-600"}`}>
+                {p.contribution}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {isInternal && (
+          <div className="mt-1 flex flex-col gap-2">
+            <button
+              onClick={() => !disabled && setShowNonContrib((v) => !v)}
+              disabled={disabled}
+              className="flex items-center gap-1.5 text-[11.5px] text-gray-500 hover:text-gray-700 transition-colors w-fit"
+            >
+              <IconChevronRight size={12} className={`transition-transform duration-150 ${showNonContrib ? "rotate-90" : ""}`} />
+              <span>{showNonContrib ? "Hide" : "Show"} projects with no contribution ({NON_CONTRIBUTING.length})</span>
+            </button>
+            {showNonContrib && (
+              <div className="flex flex-col divide-y divide-gray-100">
+                {NON_CONTRIBUTING.map((p) => (
+                  <div key={p.code} className="flex items-center gap-3 py-2">
+                    <div className="w-1.5 h-1.5 rounded-full shrink-0 bg-gray-300" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[12px] font-medium text-gray-600 truncate">{p.name}</div>
+                      <div className="text-[10.5px] text-gray-400">{p.reason}</div>
+                    </div>
+                    <code className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded shrink-0">{p.code}</code>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Methodology note + sources */}
+      <div className="flex flex-col gap-2 text-[12px] text-gray-500 leading-relaxed pt-3 border-t border-gray-100">
+        <p>
+          FY24 figures are as reported at end-June 2024; FY25 at end-June 2025. The broadband baseline was corrected from 115M to 109M after a methodology review, and the climate resilience figure was restated following a change in how anticipatory-action results are counted. All year-on-year comparisons use the restated baselines.
+        </p>
+        <UsedSources sources={[
+          "FY2024 and FY2025 IDA Results — indicator-level achieved values",
+          "Scorecard Metadata — deduplication rules (FY24/FY25 comparability)",
+          "Digital Connectivity methodology note — FY24 baseline restatement",
+          "Climate Resilience methodology note — anticipatory-action accounting change",
+        ]} />
+      </div>
+
     </div>
   );
 }
@@ -1577,15 +1917,26 @@ function MakeChangesSuggestionsMessage() {
   );
 }
 
+function CvUserBubble({ text }: { text: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [radius, setRadius] = useState(9999);
+  useEffect(() => {
+    if (ref.current) setRadius(ref.current.offsetHeight > 44 ? 18 : 9999);
+  }, [text]);
+  return (
+    <div ref={ref} style={{ background: "rgba(100,116,139,0.35)", color: "rgba(226,232,240,0.95)", borderRadius: radius }} className="px-4 py-3 text-[14px] leading-relaxed">
+      {text}
+    </div>
+  );
+}
+
 // User's "Proceed to create narrative" bubble. The AI now picks
 // interactive visuals on its own and surfaces a summary message once the
 // draft lands — so the older thought-process loader has been removed.
 function ProceedMessage() {
   return (
     <div className="self-end flex items-center gap-3 max-w-[85%] narrative-content-enter">
-      <div className="bg-blue-50 text-gray-900 px-4 py-3 rounded-2xl text-[14px] leading-relaxed">
-        Proceed to create narrative
-      </div>
+      <CvUserBubble text="Proceed to create narrative" />
       <div className="w-8 h-8 rounded-full bg-[#0288D1] flex items-center justify-center shrink-0 text-white text-[11px] font-bold">
         NT
       </div>
@@ -1904,9 +2255,14 @@ export default function ConversationView({
   narrativeVariant = "results",
   preloadedAnswer = null,
   preloadedFollowUps = [],
+  onConvertToNarrative,
 }: Props) {
   const flow = useMemo(() => detectFlow(prompt), [prompt]);
   const content = FLOW_CONTENT[flow];
+  const isNarrativeMenuPrompt = useMemo(() => {
+    const narrativeMenu = ACTION_MENUS.find((m) => m.id === "narrative");
+    return narrativeMenu?.prompts.some((p) => p.prompt === prompt) ?? false;
+  }, [prompt]);
   const signals =
     flow === "health-gap"          ? HEALTH_RELATED_SIGNALS  :
     flow === "electricity-fcs"     ? ELECTRICITY_FCS_SIGNALS :
@@ -1914,7 +2270,18 @@ export default function ConversationView({
     flow === "hnp-measurement"     ? HNP_METHOD_SIGNALS      :
     flow === "methods-taxonomy"    ? []                      :
     flow === "methods-compilation" ? []                      :
+    flow === "norway-donor"        ? []                      :
                                      RELATED_SIGNALS;
+
+  // Surface a prompt chip above the bar for narrative-menu prompts.
+  // Donor-attribution prompts get "Donor narrative"; others get "Convert into a narrative".
+  useEffect(() => {
+    if (isNarrativeMenuPrompt && onWizardContextChipsChange) {
+      const label = flow === "norway-donor" ? "Create a Narrative" : "Convert into a narrative";
+      onWizardContextChipsChange([{ id: "convert-narrative", label }]);
+      return () => onWizardContextChipsChange([]);
+    }
+  }, [isNarrativeMenuPrompt, flow, onWizardContextChipsChange]);
 
   // When in the guided narrative flow, generate 4 angle skeletons from the
   // matched WBGNarrative so the SkeletonChoice carousel shows real data.
@@ -2153,6 +2520,7 @@ export default function ConversationView({
                 <div>
                   <div className="flex items-center gap-2 mb-3">
                     <IconSparkles size={13} className="text-violet-400 shrink-0" aria-hidden="true" />
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Follow Up</span>
                   </div>
                   <div className="flex flex-col border-t border-gray-200">
                     {followUpPrompts.map((p) => (
@@ -2173,11 +2541,9 @@ export default function ConversationView({
           ) : (
             <>
               {/* User message — stage 1: slides in after first paint */}
-              {mountStage >= 1 && narrativePhase === "idle" && (
+              {mountStage >= 1 && !(showBlock1 && !narrativeDirect && narrativeVariant !== "donor-priorities") && (
                 <div className="self-end flex items-center gap-3 max-w-[85%] narrative-content-enter">
-                  <div className="bg-blue-50 text-gray-900 px-4 py-3 rounded-2xl text-[14px] leading-relaxed">
-                    {prompt}
-                  </div>
+                  <CvUserBubble text={prompt} />
                   <div className="w-8 h-8 rounded-full bg-[#0288D1] flex items-center justify-center shrink-0 text-white text-[11px] font-bold">
                     NT
                   </div>
@@ -2231,12 +2597,12 @@ export default function ConversationView({
 
               {/* Thought process — stage 2: mounts 350ms after user message, then steps animate sequentially.
                   Suppressed entirely in narrative-direct mode (landing-page "Create a narrative" entry). */}
-              {!narrativeDirect && narrativePhase === "idle" && !preloadedAnswer && mountStage >= 2 && (
+              {!narrativeDirect && !(showBlock1 && narrativeVariant !== "donor-priorities") && !preloadedAnswer && mountStage >= 2 && (
                 <ThoughtProcess flow={flow} onComplete={() => setThoughtDone(true)} />
               )}
 
               {/* Assistant response — appears after thought process collapses */}
-              {!narrativeDirect && narrativePhase === "idle" && !preloadedAnswer && thoughtDone && (
+              {!narrativeDirect && !(showBlock1 && narrativeVariant !== "donor-priorities") && !preloadedAnswer && thoughtDone && (
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-full bg-[#0288D1] flex items-center justify-center shrink-0 text-white text-[11px] font-bold">
                     SC
@@ -2255,37 +2621,42 @@ export default function ConversationView({
                       className="flex flex-col gap-4 transition-opacity duration-700"
                       style={{ opacity: leadDone ? 1 : 0 }}
                     >
-                      <p className="text-[13.5px] text-gray-700 leading-relaxed">
-                        {content.bodyText}
-                      </p>
-                      <p className="text-[12.5px] text-gray-500">
-                        {content.filterCaption}
-                      </p>
-
-                      {/* Chart — flow-specific. Once the user moves into the
-                          narrative-creation flow (showBlock1), the chart's
-                          filter + hover interactions lock so the Q&A view
-                          can't drift while the next step is in progress. */}
-                      {flow === "health-gap" ? (
-                        <HealthGapChart
-                          title={content.chartTitle}
-                          caption="Health Services results · project-level data · FY2025"
-                          disabled={showBlock1}
-                        />
-                      ) : flow === "fy24-fy25-delta" ? (
-                        <YoYDeltaChart title={content.chartTitle} disabled={showBlock1} />
-                      ) : flow === "hnp-measurement" ? (
-                        <IndicatorMethodologyCard title={content.chartTitle} disabled={showBlock1} />
-                      ) : flow === "methods-taxonomy" ? (
-                        <MethodsAdvisorCard flow="methods-taxonomy" disabled={showBlock1} />
-                      ) : flow === "methods-compilation" ? (
-                        <MethodsAdvisorCard flow="methods-compilation" disabled={showBlock1} />
+                      {/* Comparative Analytics Engine response — replaces
+                          chart + body for fy24-fy25-delta; other flows keep
+                          the standard body → chart → sources layout. */}
+                      {flow === "fy24-fy25-delta" ? (
+                        <ComparativeAnalyticsResponse disabled={showBlock1} leadDone={leadDone} />
                       ) : (
-                        <PovertyChart title={content.chartTitle} disabled={showBlock1} />
-                      )}
+                        <>
+                          <p className="text-[13.5px] text-gray-700 leading-relaxed">
+                            {content.bodyText}
+                          </p>
+                          <p className="text-[12.5px] text-gray-500">
+                            {content.filterCaption}
+                          </p>
 
-                      {/* Sources */}
-                      <UsedSources sources={content.sources} />
+                          {flow === "health-gap" ? (
+                            <HealthGapChart
+                              title={content.chartTitle}
+                              caption="Health Services results · project-level data · FY2025"
+                              disabled={showBlock1}
+                            />
+                          ) : flow === "hnp-measurement" ? (
+                            <IndicatorMethodologyCard title={content.chartTitle} disabled={showBlock1} />
+                          ) : flow === "methods-taxonomy" ? (
+                            <MethodsAdvisorCard flow="methods-taxonomy" disabled={showBlock1} />
+                          ) : flow === "methods-compilation" ? (
+                            <MethodsAdvisorCard flow="methods-compilation" disabled={showBlock1} />
+                          ) : flow === "norway-donor" ? (
+                            <DonorAttributionStats disabled={showBlock1} />
+                          ) : (
+                            <PovertyChart title={content.chartTitle} disabled={showBlock1} />
+                          )}
+
+                          {/* Sources */}
+                          <UsedSources sources={content.sources} />
+                        </>
+                      )}
 
                       {/* Copy / feedback row */}
                       <div className="flex items-center gap-3 mt-2 text-gray-400">
@@ -2314,6 +2685,13 @@ export default function ConversationView({
                           ))}
                         </div>
                       </div>
+
+                      {flow === "norway-donor" && !showBlock1 && (
+                        <p className="text-[13.5px] text-gray-500 leading-relaxed mt-1">
+                          I can create a structured donor narrative for you — showing how Norway's contribution maps to real outcomes across health, education, and social protection.
+                        </p>
+                      )}
+
                     </div>
                   </div>
                 </div>
@@ -2347,11 +2725,7 @@ export default function ConversationView({
               {/* ── Narrative Builder flow (Steps 3–7) ── */}
               {showBlock1 && !narrativeDirect && (
                 <div className="self-end flex items-center gap-3 max-w-[85%] narrative-content-enter">
-                  <div className="bg-blue-50 text-gray-900 px-4 py-3 rounded-2xl text-[14px] leading-relaxed">
-                    {narrativeVariant === "donor-priorities"
-                      ? "How does IDA21 address and report on Norway's food security priorities?"
-                      : "Build a Results Narrative"}
-                  </div>
+                  <CvUserBubble text={narrativeVariant === "donor-priorities" ? "Create a Narrative" : "Build a Results Narrative"} />
                   <div className="w-8 h-8 rounded-full bg-[#0288D1] flex items-center justify-center shrink-0 text-white text-[11px] font-bold">
                     NT
                   </div>
@@ -2434,6 +2808,7 @@ export default function ConversationView({
                 <div className="narrative-content-enter" style={{ animationDelay: "500ms" }}>
                   <div className="flex items-center gap-2 mb-3">
                     <IconSparkles size={13} className="text-violet-400 shrink-0" aria-hidden="true" />
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Follow Up</span>
                   </div>
                   <div className="flex flex-col border-t border-gray-200">
                     {followUpPrompts.map((p) => (

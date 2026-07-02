@@ -110,7 +110,7 @@ export const ACTION_MENUS: ActionMenu[] = [
   },
   {
     id: "narrative",
-    label: "Draft a Report",
+    label: "Create a Narrative",
     prompts: [
       {
         label: "How can I build a narrative on results that speaks to development issues in IBRD and middle-income countries?",
@@ -123,6 +123,10 @@ export const ACTION_MENUS: ActionMenu[] = [
       {
         label: "What is the performance of the WBG on IDA21 policy commitments?",
         prompt: "What is the performance of the WBG on IDA21 policy commitments?",
+      },
+      {
+        label: "What proportion of IDA results is being achieved with Norway's money?",
+        prompt: "What proportion of Scorecard results in IDA countries is being achieved with Norway's money?",
       },
     ],
   },

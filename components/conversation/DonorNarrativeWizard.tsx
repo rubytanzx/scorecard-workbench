@@ -1,6 +1,6 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { IconCheck, IconChevronDown } from "@tabler/icons-react";
+import { IconCheck, IconChevronDown, IconArrowsMaximize } from "@tabler/icons-react";
 import type { NarrativeBuilderResult } from "./NarrativeBuilderWizard";
 import { challengeSets, getGapTips, type GapTip } from "@/lib/challengeData";
 
@@ -75,9 +75,14 @@ function AiText({ children }: { children: React.ReactNode }) {
 }
 
 function UserBubble({ text }: { text: string }) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [radius, setRadius] = React.useState(9999);
+  React.useLayoutEffect(() => {
+    if (ref.current) setRadius(ref.current.offsetHeight > 44 ? 18 : 9999);
+  }, [text]);
   return (
     <div className="self-end narrative-content-enter" style={{ display: "flex", alignItems: "flex-end", gap: 10, maxWidth: "72%" }}>
-      <div style={{ background: "rgba(100,116,139,0.35)", borderRadius: 20, padding: "10px 16px", fontSize: 13.5, color: "rgba(226,232,240,0.95)", fontFamily: F, lineHeight: 1.5 }}>
+      <div ref={ref} style={{ background: "rgba(100,116,139,0.35)", borderRadius: radius, padding: "10px 16px", fontSize: 13.5, color: "rgba(226,232,240,0.95)", fontFamily: F, lineHeight: 1.5 }}>
         {text}
       </div>
     </div>
@@ -113,6 +118,85 @@ function ActionChips({ options, onSelect, disabled }: {
           {o.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+// ─── 3-point length slider ────────────────────────────────────────────────────
+const LENGTH_OPTIONS = [
+  { label: "Short",    readTime: "~1.5 min read", desc: "Quick brief"       },
+  { label: "Standard", readTime: "~2.5 min read", desc: "Recommended"       },
+  { label: "In-depth", readTime: "~4 min read",   desc: "Full evidence"     },
+];
+
+function LengthSlider({ onSelect }: { onSelect: (label: string) => void }) {
+  const [selected, setSelected] = useState(1); // default: Standard
+
+  const handlePick = (i: number) => {
+    setSelected(i);
+    setTimeout(() => onSelect(LENGTH_OPTIONS[i].label), 280);
+  };
+
+  const pct = (selected / (LENGTH_OPTIONS.length - 1)) * 100;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18, paddingTop: 4 }}>
+      {/* Track */}
+      <div style={{ position: "relative", height: 4, background: "rgba(255,255,255,0.12)", borderRadius: 2, margin: "0 8px" }}>
+        <div style={{ position: "absolute", left: 0, width: `${pct}%`, height: "100%", background: "rgba(129,140,248,0.75)", borderRadius: 2, transition: "width 0.22s ease" }} />
+        {LENGTH_OPTIONS.map((_, i) => {
+          const pos = (i / (LENGTH_OPTIONS.length - 1)) * 100;
+          const active = i === selected;
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={() => handlePick(i)}
+              style={{
+                position: "absolute",
+                left: `${pos}%`,
+                top: "50%",
+                transform: "translate(-50%, -50%)",
+                width: active ? 18 : 12,
+                height: active ? 18 : 12,
+                borderRadius: "50%",
+                background: i <= selected ? "rgba(129,140,248,0.90)" : "rgba(255,255,255,0.18)",
+                border: active ? "2px solid rgba(199,210,254,0.70)" : "2px solid transparent",
+                cursor: "pointer",
+                transition: "all 0.18s ease",
+                zIndex: 2,
+              }}
+            />
+          );
+        })}
+      </div>
+
+      {/* Labels */}
+      <div style={{ display: "flex", justifyContent: "space-between", margin: "0 0px" }}>
+        {LENGTH_OPTIONS.map((opt, i) => {
+          const active = i === selected;
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={() => handlePick(i)}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: "0 4px", textAlign: i === 0 ? "left" : i === LENGTH_OPTIONS.length - 1 ? "right" : "center", flex: 1 }}
+            >
+              <div style={{ fontSize: 13, fontWeight: active ? 700 : 500, color: active ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.42)", fontFamily: F, transition: "color 0.18s" }}>
+                {opt.label}
+              </div>
+              <div style={{ fontSize: 11, color: active ? "rgba(199,210,254,0.70)" : "rgba(255,255,255,0.25)", fontFamily: F, marginTop: 2, transition: "color 0.18s" }}>
+                {opt.readTime}
+              </div>
+              {active && (
+                <div style={{ fontSize: 10, color: "rgba(129,140,248,0.65)", fontFamily: F, marginTop: 1, letterSpacing: "0.02em" }}>
+                  {opt.desc}
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -205,15 +289,13 @@ function NarrativeGuidanceWidget({
 // ─── Phase state machine ───────────────────────────────────────────────────────
 type Phase =
   | "q0-thinking"   // initial indexing
-  | "q1"            // US028: country/region focus
+  | "q1"            // country/region focus
   | "q1-thinking"
-  | "q2"            // US028: gender disaggregation
+  | "q2"            // gender disaggregation
   | "q2-thinking"
-  | "q3"            // US028: audience
+  | "q3"            // audience
   | "q3-thinking"
-  | "q4"            // US029: tone suggestion + confirm
-  | "q4-thinking"
-  | "q5"            // US029: length suggestion
+  | "q5"            // length selection (tone derived automatically from audience)
   | "q5-thinking"   // brief pause before showing section structure
   | "q5-confirmed"; // section structure shown → triggers onComplete
 
@@ -224,9 +306,11 @@ interface Props {
   contextActionRef?: React.MutableRefObject<((actionId: string) => void) | null>;
   onSetGuidanceReply?: (label: string | null) => void;
   onGuidanceDimension?: (dimensionNum: number) => void;
+  /** Called when the user clicks the Preview button. */
+  onPreview?: () => void;
 }
 
-export default function DonorNarrativeWizard({ onComplete, inputRef, onContextChipsChange, contextActionRef, onSetGuidanceReply, onGuidanceDimension }: Props) {
+export default function DonorNarrativeWizard({ onComplete, inputRef, onContextChipsChange, contextActionRef, onSetGuidanceReply, onGuidanceDimension, onPreview }: Props) {
   const [phase, setPhase] = useState<Phase>("q0-thinking");
   const phaseRef = useRef<Phase>("q0-thinking");
   useEffect(() => { phaseRef.current = phase; }, [phase]);
@@ -235,8 +319,11 @@ export default function DonorNarrativeWizard({ onComplete, inputRef, onContextCh
   const [q1Answer, setQ1Answer] = useState<string | null>(null);
   const [q2Answer, setQ2Answer] = useState<string | null>(null);
   const [q3Answer, setQ3Answer] = useState<string | null>(null);
-  const [q4Answer, setQ4Answer] = useState<string | null>(null);
   const [q5Answer, setQ5Answer] = useState<string | null>(null);
+
+  // Derive tone from audience (no explicit Q4 step)
+  const derivedTone = (q3Answer ?? "").toLowerCase().includes("senior")
+    ? "Strategic" : "Accountability";
 
   // Fixed challenge for this donor flow
   const donorChallenge = useMemo(() => challengeSets.find((c) => c.id === "cr-3") ?? challengeSets[0], []);
@@ -273,12 +360,8 @@ export default function DonorNarrativeWizard({ onComplete, inputRef, onContextCh
 
   const q3Steps = useMemo<ThoughtStep[]>(() => [
     { text: "Identifying audience framing requirements",            detail: q3Answer ?? "" },
-    { text: "Selecting Accountability tone based on audience",      detail: "Donor delegation — IDA21 MTR" },
+    { text: "Deriving tone from audience",                          detail: `${(q3Answer ?? "").toLowerCase().includes("senior") ? "Strategic" : "Accountability"} — auto-selected` },
   ], [q3Answer]);
-
-  const q4Steps = useMemo<ThoughtStep[]>(() => [
-    { text: "Tone confirmed — Accountability",                      detail: "Donor reporting frame applied" },
-  ], []);
 
   const q5Steps = useMemo<ThoughtStep[]>(() => [
     { text: "Confirming section structure",                         detail: "US030 fixed sections applied" },
@@ -299,16 +382,13 @@ export default function DonorNarrativeWizard({ onComplete, inputRef, onContextCh
     } else if (p === "q3") {
       setQ3Answer(text);
       setPhase("q3-thinking");
-      setTimeout(() => setPhase("q4"), 1800);
-    } else if (p === "q4") {
-      setQ4Answer(text);
-      setPhase("q4-thinking");
-      setTimeout(() => setPhase("q5"), 1000);
+      setTimeout(() => setPhase("q5"), 1800);
     } else if (p === "q5") {
       setQ5Answer(text);
       setPhase("q5-thinking");
       setTimeout(() => {
         const lengthToReadTime: Record<string, string> = { "Standard": "~2.5 min", "In-depth": "~4 min", "Short": "~1.5 min" };
+        const tone = (q3Answer ?? "").toLowerCase().includes("senior") ? "Strategic" : "Accountability";
         setPhase("q5-confirmed");
         onComplete({
           outcomeAreaIds: ["green-blue-planet"],
@@ -317,7 +397,7 @@ export default function DonorNarrativeWizard({ onComplete, inputRef, onContextCh
           narrativeMeta: {
             title: "IDA21 Donor Report · Norway",
             audience: (q3Answer ?? "Donor delegation").replace(/\b\w/g, (c) => c.toUpperCase()),
-            tonality: q4Answer ?? "Accountability",
+            tonality: tone,
             readTime: lengthToReadTime[text] ?? "~2.5 min",
           },
         });
@@ -365,31 +445,20 @@ export default function DonorNarrativeWizard({ onComplete, inputRef, onContextCh
     if (pendingGapDimNum !== null) {
       inputRef.current = handleGapResponse;
     } else {
-      const waiting: Phase[] = ["q1", "q2", "q3", "q4", "q5"];
+      const waiting: Phase[] = ["q1", "q2", "q3", "q5"];
       inputRef.current = waiting.includes(phase) ? handleInput : null;
     }
     return () => { inputRef.current = null; };
   }, [phase, inputRef, handleInput, handleGapResponse, pendingGapDimNum]);
 
-  // Surface "Proceed" above the prompt bar during Q4 tone confirmation
   useEffect(() => {
-    if (phase === "q4") {
-      onContextChipsChange?.([{ id: "proceed", label: "Proceed" }]);
-      if (contextActionRef) {
-        contextActionRef.current = () => {
-          handleInput("Accountability");
-          onContextChipsChange?.([]);
-        };
-      }
-    } else {
-      onContextChipsChange?.([]);
-      if (contextActionRef) contextActionRef.current = null;
-    }
+    onContextChipsChange?.([]);
+    if (contextActionRef) contextActionRef.current = null;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
   const past = (p: Phase) => {
-    const order: Phase[] = ["q0-thinking","q1","q1-thinking","q2","q2-thinking","q3","q3-thinking","q4","q4-thinking","q5","q5-thinking","q5-confirmed"];
+    const order: Phase[] = ["q0-thinking","q1","q1-thinking","q2","q2-thinking","q3","q3-thinking","q5","q5-thinking","q5-confirmed"];
     return order.indexOf(phase) > order.indexOf(p);
   };
   const atOrPast = (p: Phase) => phase === p || past(p);
@@ -407,7 +476,7 @@ export default function DonorNarrativeWizard({ onComplete, inputRef, onContextCh
       {atOrPast("q1") && (
         <AiBlock>
           <AiText>
-            To make sure the narrative is as relevant as possible — are you focused on a specific country or region, or would you like this to cover IDA countries broadly?
+            For this narrative are you focused on the results within a specific country or region, or would you like this to cover IDA countries broadly?
           </AiText>
           {phase === "q1" && (
             <ActionChips
@@ -457,33 +526,14 @@ export default function DonorNarrativeWizard({ onComplete, inputRef, onContextCh
       {q3Answer && <UserBubble text={q3Answer} />}
       {phase === "q3-thinking" && <WizardThoughtProcess steps={q3Steps} />}
 
-      {/* Q4: tone suggestion (US029) */}
-      {atOrPast("q4") && (
-        <AiBlock>
-          <AiText>
-            Based on a donor delegation audience and the prompt framing, I&apos;d suggest an <strong style={{ color: "rgba(199,210,254,0.90)" }}>Accountability</strong> tone — demonstrating that results are being delivered against IDA21 commitments. Does that work, or would you prefer a different framing?
-          </AiText>
-        </AiBlock>
-      )}
-
-      {q4Answer && <UserBubble text={q4Answer} />}
-      {phase === "q4-thinking" && <WizardThoughtProcess steps={q4Steps} />}
-
-      {/* Q5: length suggestion (US029) */}
+      {/* Q5: length selection via 3-point slider */}
       {atOrPast("q5") && (
         <AiBlock>
           <AiText>
-            For length, given the scope — one outcome area, one region, FCV focus — I&apos;d suggest <strong style={{ color: "rgba(199,210,254,0.90)" }}>Standard</strong> (~500 words, ~2.5 min read). You could go In-depth if you want fuller evidence and lessons, or Short if this is a quick brief. Which would you like?
+            For length, given the scope — one outcome area, one region, FCV focus — I&apos;d suggest <strong style={{ color: "rgba(199,210,254,0.90)" }}>Standard</strong>. Use the slider to choose your preferred read time.
           </AiText>
           {phase === "q5" && (
-            <ActionChips
-              options={[
-                { id: "standard",  label: "Standard" },
-                { id: "in-depth",  label: "In-depth" },
-                { id: "short",     label: "Short" },
-              ]}
-              onSelect={(_, label) => handleInput(label)}
-            />
+            <LengthSlider onSelect={(label) => handleInput(label)} />
           )}
         </AiBlock>
       )}

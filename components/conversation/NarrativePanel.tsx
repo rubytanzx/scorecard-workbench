@@ -26,6 +26,8 @@ import {
   IconSparkles,
   IconPhoto,
   IconQuote,
+  IconArrowsMaximize,
+  IconEye,
 } from "@tabler/icons-react";
 import type { AddedVisual } from "./ConversationView";
 import type { NarrativeMeta } from "./NarrativeBuilderWizard";
@@ -56,6 +58,8 @@ interface Props {
    * decides what to do with the chosen format (e.g. swap to Infographic
    * panel, queue a download, etc.). */
   onGenerate?: (kind: string) => void;
+  /** Fires when the user clicks the Preview button in the footer. */
+  onPreview?: () => void;
   /** When true, render skeleton placeholders + an animated geography loader
    * in place of the real content — used while the narrative is being
    * generated for the first time. */
@@ -423,8 +427,9 @@ function ImpactWorldMap({ stories }: { stories: CountryStory[] }) {
             <Geographies geography={WORLD_GEO_URL}>
               {({ geographies }: { geographies: { rsmKey: string; id: string; properties: { name?: string } }[] }) =>
                 geographies.map((geo) => {
-                  const isHighlighted = highlightedM49.has(geo.id);
-                  const isHover = hover === geo.id;
+                  const geoId = String(geo.id);
+                  const isHighlighted = highlightedM49.has(geoId);
+                  const isHover = hover === geoId;
                   return (
                     <Geography
                       key={geo.rsmKey}
@@ -432,7 +437,7 @@ function ImpactWorldMap({ stories }: { stories: CountryStory[] }) {
                       fill={isHighlighted ? (isHover ? "#93C5FD" : "#60A5FA") : "#1A2E3B"}
                       stroke="rgba(255,255,255,0.08)"
                       strokeWidth={isHighlighted ? 0.7 : 0.4}
-                      onMouseEnter={() => { if (isHighlighted) setHover(geo.id); }}
+                      onMouseEnter={() => { if (isHighlighted) setHover(geoId); }}
                       onMouseLeave={() => setHover(null)}
                       style={{
                         default: {
@@ -723,7 +728,7 @@ function CountryLocatorMap({ name }: { name: string }) {
         <Geographies geography={WORLD_GEO_URL}>
           {({ geographies }: { geographies: { rsmKey: string; id: string }[] }) =>
             geographies.map((geo) => {
-              const isTarget = geo.id === m49;
+              const isTarget = String(geo.id) === m49;
               return (
                 <Geography
                   key={geo.rsmKey}
@@ -1261,7 +1266,7 @@ const SECTIONS_AFRICA: Section[] = [
     id: "intervention",
     title: "Pathways to Outcomes",
     quality: 76,
-    body: "",
+    body: "IDA's theory of change moves from institutional constraint → targeted support → intermediate outcomes → high-level development impact. The four steps below trace how People-pillar financing translated into measurable gains during IDA20.",
     tocSteps: [
       {
         label: "Constraint",
@@ -2105,6 +2110,7 @@ function Accordion({
   onDragLeave,
   onDragEnd,
   onDrop,
+  showQuality = false,
 }: {
   section: Section;
   open: boolean;
@@ -2131,6 +2137,7 @@ function Accordion({
   onDragLeave?: (e: React.DragEvent) => void;
   onDragEnd?: (e: React.DragEvent) => void;
   onDrop?: (e: React.DragEvent) => void;
+  showQuality?: boolean;
 }) {
   const [localChartType, setLocalChartType] = useState<ChartType>(
     (section.defaultChartType ?? "comparative") as ChartType
@@ -2180,28 +2187,13 @@ function Accordion({
         >
           <span className="text-[13.5px] font-semibold text-gray-900">{section.title}</span>
           <span className="flex items-center gap-2.5 shrink-0">
-            {section.quality != null && (() => {
-              const color = section.quality >= 80 ? "#059669" : section.quality >= 65 ? "#D97706" : "#DC2626";
-              const bgColor = section.quality >= 80 ? "rgba(5,150,105,0.10)" : section.quality >= 65 ? "rgba(217,119,6,0.10)" : "rgba(220,38,38,0.10)";
-              const borderColor = section.quality >= 80 ? "rgba(5,150,105,0.28)" : section.quality >= 65 ? "rgba(217,119,6,0.28)" : "rgba(220,38,38,0.28)";
+            {showQuality && section.quality != null && (() => {
+              const q = section.quality;
+              const color = q >= 80 ? "#059669" : q >= 65 ? "#D97706" : "#DC2626";
+              const bg    = q >= 80 ? "#ECFDF5"  : q >= 65 ? "#FFFBEB"  : "#FEF2F2";
               return (
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 4,
-                    padding: "3px 8px",
-                    borderRadius: 20,
-                    background: bgColor,
-                    border: `1px solid ${borderColor}`,
-                  }}
-                >
-                  <span style={{ fontSize: 11, fontWeight: 600, color, fontFamily: "'Open Sans', sans-serif", lineHeight: 1, opacity: 0.8 }}>
-                    Narrative strength
-                  </span>
-                  <span style={{ fontSize: 11.5, fontWeight: 700, color, fontFamily: "'Open Sans', sans-serif", lineHeight: 1 }}>
-                    {section.quality}%
-                  </span>
+                <span style={{ fontSize: 11, fontWeight: 700, color, background: bg, borderRadius: 6, padding: "2px 7px" }}>
+                  {q}%
                 </span>
               );
             })()}
@@ -3134,7 +3126,7 @@ const DIM_TO_SCORE_KEY: Record<number, keyof NarrativeScores> = {
   5: "lessonsLearned",
 };
 
-export default function NarrativePanel({ open, prompt, onClose, width, onResize, onGenerate, loading, generatedKinds = [], skeletonId = null, extraCountryApplied = false, addedVisuals = [], onRemoveVisual, onAddVisual, onModifyContent, onAutoPrompt, contentModifySignal, guidanceSignal, guidedSkeleton, narrativeVariant = "results", narrativeMeta }: Props) {
+export default function NarrativePanel({ open, prompt, onClose, width, onResize, onGenerate, onPreview, loading, generatedKinds = [], skeletonId = null, extraCountryApplied = false, addedVisuals = [], onRemoveVisual, onAddVisual, onModifyContent, onAutoPrompt, contentModifySignal, guidanceSignal, guidedSkeleton, narrativeVariant = "results", narrativeMeta }: Props) {
   const [dragging, setDragging] = useState(false);
   const startX = useRef(0);
   const startWidth = useRef(0);
@@ -3230,7 +3222,7 @@ export default function NarrativePanel({ open, prompt, onClose, width, onResize,
   // Keyed by section.id; once removed, the Accordion skips rendering its
   // Chart. State is per-panel so it persists across accordion open/close
   // cycles within the same conversation.
-  const [removedCharts, setRemovedCharts] = useState<Set<string>>(new Set());
+  const [removedCharts, setRemovedCharts] = useState<Set<string>>(new Set(["impact"]));
   const removeChart = (sectionId: string) =>
     setRemovedCharts((prev) => {
       if (prev.has(sectionId)) return prev;
@@ -3238,6 +3230,9 @@ export default function NarrativePanel({ open, prompt, onClose, width, onResize,
       next.add(sectionId);
       return next;
     });
+
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewTab, setPreviewTab] = useState<"document" | "slides" | "infographic">("document");
 
   // Keep sectionOrder in sync when the sections list changes (flow switch or
   // extraCountryApplied). Always resets to canonical order since drag-to-reorder
@@ -3655,14 +3650,10 @@ export default function NarrativePanel({ open, prompt, onClose, width, onResize,
             </div>
           )}
 
-          {/* Narrative Strength scoring panel */}
-          <NarrativeStrengthPanel
-            scores={adjustedScores}
-            onExplainScore={(key, label, val) => {
-              const prompt = `My "${label}" narrative strength score is ${val}%. Explain why my score is at this level and what specific refinements I can make to improve it.`;
-              onAutoPrompt?.(prompt);
-            }}
-          />
+          {/* Narrative Strength — results variant only */}
+          {narrativeVariant !== "donor-priorities" && (
+            <NarrativeStrengthPanel scores={adjustedScores} />
+          )}
 
           {/* Accordions — each cascades in after the hero lands. The
               Country Examples section gets a Geography block (WorldMap +
@@ -3698,6 +3689,7 @@ export default function NarrativePanel({ open, prompt, onClose, width, onResize,
                 onDragLeave={() => setDragOverId(null)}
                 onDragEnd={handleSectionDragEnd}
                 onDrop={(e) => handleSectionDrop(e, s.id)}
+                showQuality={narrativeVariant !== "donor-priorities"}
                 geography={
                   s.id === "impact" && s.countryStories && s.countryStories.length > 0
                     ? <ImpactWorldMap stories={s.countryStories} />
@@ -3715,7 +3707,22 @@ export default function NarrativePanel({ open, prompt, onClose, width, onResize,
       </div>
 
       {/* Footer */}
-      <NarrativeFooter onGenerate={onGenerate} generatedKinds={generatedKinds} />
+      <NarrativeFooter
+        onGenerate={onGenerate}
+        generatedKinds={generatedKinds}
+        onPreview={() => { setPreviewOpen(true); onPreview?.(); }}
+      />
+
+      {/* Preview modal */}
+      <PreviewModal
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        sections={orderedSections}
+        hero={hero}
+        narrativeMeta={narrativeMeta}
+        tab={previewTab}
+        onTabChange={setPreviewTab}
+      />
 
       {/* Selection-driven contextual menu. Rendered via portal so that
           position:fixed works relative to the viewport — the aside's
@@ -3751,6 +3758,354 @@ export default function NarrativePanel({ open, prompt, onClose, width, onResize,
   );
 }
 
+// ─── Preview modal ────────────────────────────────────────────────────────────
+
+interface PreviewModalProps {
+  open: boolean;
+  onClose: () => void;
+  sections: Section[];
+  hero: Hero;
+  narrativeMeta?: { title?: string; audience?: string; readTime?: string; tonality?: string };
+  tab: "document" | "slides" | "infographic";
+  onTabChange: (t: "document" | "slides" | "infographic") => void;
+}
+
+const PREVIEW_TABS: { id: "document" | "slides" | "infographic"; label: string }[] = [
+  { id: "document",    label: "Document" },
+  { id: "slides",      label: "Slides" },
+  { id: "infographic", label: "Infographic" },
+];
+
+function PreviewModal({ open, onClose, sections, hero, narrativeMeta, tab, onTabChange }: PreviewModalProps) {
+  if (!open) return null;
+  const docTitle = narrativeMeta?.title ?? hero.title;
+  const docAudience = narrativeMeta?.audience ?? "IDA Senior Management";
+  const F = "'Open Sans', sans-serif";
+
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 9999,
+        background: "rgba(0,0,0,0.72)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        backdropFilter: "blur(4px)",
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          width: "min(92vw, 1020px)", height: "min(90vh, 780px)",
+          borderRadius: 18, overflow: "hidden",
+          display: "flex", flexDirection: "column",
+          background: "#0D1B26",
+          boxShadow: "0 32px 80px rgba(0,0,0,0.70)",
+          border: "1px solid rgba(255,255,255,0.09)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.07)",
+          background: "rgba(255,255,255,0.02)", flexShrink: 0,
+        }}>
+          <div style={{ display: "flex", gap: 6 }}>
+            {PREVIEW_TABS.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => onTabChange(t.id)}
+                style={{
+                  padding: "5px 14px", borderRadius: 100,
+                  fontSize: 12.5, fontWeight: tab === t.id ? 600 : 500,
+                  fontFamily: F, cursor: "pointer",
+                  border: tab === t.id ? "1px solid rgba(255,255,255,0.22)" : "1px solid transparent",
+                  background: tab === t.id ? "rgba(255,255,255,0.10)" : "transparent",
+                  color: tab === t.id ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.45)",
+                  transition: "all 120ms",
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.10)",
+              borderRadius: 8, cursor: "pointer",
+              color: "rgba(255,255,255,0.55)", fontSize: 18, lineHeight: 1,
+              padding: "4px 10px", fontFamily: F,
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
+
+          {/* ── Document view ─────────────────────────────── */}
+          {tab === "document" && (
+            <div style={{
+              maxWidth: 680, margin: "0 auto", padding: "48px 40px 64px",
+              background: "#fff", minHeight: "100%",
+            }}>
+              {/* Letterhead */}
+              <div style={{ borderBottom: "2px solid #1a3a5c", paddingBottom: 20, marginBottom: 28 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", color: "#1a3a5c", fontFamily: F, marginBottom: 6 }}>
+                      World Bank Group · IDA Results Narrative
+                    </div>
+                    <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "#0D1B26", fontFamily: F, lineHeight: 1.25 }}>
+                      {docTitle}
+                    </h1>
+                  </div>
+                  <div style={{ textAlign: "right", flexShrink: 0, paddingLeft: 24 }}>
+                    <div style={{ fontSize: 10, color: "#6b7280", fontFamily: F }}>{docAudience}</div>
+                    <div style={{ fontSize: 10, color: "#6b7280", fontFamily: F }}>FY25 · {narrativeMeta?.readTime ?? "~3 min"}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Hero intro */}
+              <p style={{ fontSize: 13, lineHeight: 1.75, color: "#374151", fontFamily: F, margin: "0 0 32px" }}>
+                {hero.intro}
+              </p>
+
+              {/* Key stat */}
+              <div style={{ background: "#f0f7ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: "14px 18px", marginBottom: 32, display: "flex", gap: 16, alignItems: "center" }}>
+                <div style={{ fontSize: 28, fontWeight: 700, color: "#1d4ed8", fontFamily: F, lineHeight: 1 }}>{hero.metric.value}</div>
+                <div>
+                  <div style={{ fontSize: 11.5, color: "#1e40af", fontFamily: F, lineHeight: 1.45 }}>{hero.metric.caption}</div>
+                  <div style={{ fontSize: 10, color: "#93c5fd", fontFamily: F }}>{hero.metric.code}</div>
+                </div>
+              </div>
+
+              {/* Sections */}
+              {sections.map((s, i) => (
+                <div key={s.id} style={{ marginBottom: 28 }}>
+                  <h2 style={{
+                    margin: "0 0 10px", fontSize: 14, fontWeight: 700,
+                    color: "#1a3a5c", fontFamily: F, textTransform: "uppercase",
+                    letterSpacing: "0.06em", borderBottom: "1px solid #e5e7eb",
+                    paddingBottom: 6,
+                  }}>
+                    {`${i + 1}. ${s.title}`}
+                  </h2>
+                  <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.75, color: "#374151", fontFamily: F }}>
+                    {s.paragraphs?.[0] ?? s.body}
+                  </p>
+                  {s.paragraphs && s.paragraphs.length > 1 && (
+                    <p style={{ margin: "10px 0 0", fontSize: 12.5, lineHeight: 1.75, color: "#374151", fontFamily: F }}>
+                      {s.paragraphs[1]}
+                    </p>
+                  )}
+                  {s.bullets && s.bullets.length > 0 && (
+                    <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+                      {s.bullets.map((b, bi) => (
+                        <li key={bi} style={{ fontSize: 12, color: "#374151", fontFamily: F, lineHeight: 1.6, marginBottom: 4 }}>{b}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {s.lessons && s.lessons.length > 0 && (
+                    <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+                      {s.lessons.map((l, li) => (
+                        <li key={li} style={{ fontSize: 12, color: "#374151", fontFamily: F, lineHeight: 1.65, marginBottom: 6 }}>
+                          <strong>{l.lead}</strong> {l.body}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {s.countryStories && s.countryStories.length > 0 && (
+                    <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                      {s.countryStories.map((cs, ci) => (
+                        <div key={ci} style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 6, padding: "8px 12px" }}>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "#1a3a5c", fontFamily: F, marginBottom: 3 }}>{cs.flag} {cs.name}</div>
+                          <p style={{ margin: 0, fontSize: 11.5, color: "#374151", fontFamily: F, lineHeight: 1.6 }}>{cs.body}</p>
+                          {cs.result && <p style={{ margin: "4px 0 0", fontSize: 11, color: "#059669", fontFamily: F, fontWeight: 500 }}>→ {cs.result}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── Slides view ───────────────────────────────── */}
+          {tab === "slides" && (
+            <div style={{ padding: "28px 32px", display: "flex", flexDirection: "column", gap: 24 }}>
+              {/* Title slide */}
+              <div style={{
+                aspectRatio: "16/9", borderRadius: 10, overflow: "hidden",
+                background: "linear-gradient(135deg, #0a2540 0%, #1a3a5c 100%)",
+                display: "flex", flexDirection: "column", justifyContent: "center",
+                padding: "40px 56px", position: "relative",
+                border: "1px solid rgba(255,255,255,0.08)",
+              }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(255,255,255,0.38)", fontFamily: F, marginBottom: 12 }}>
+                  World Bank Group · IDA Results Narrative
+                </div>
+                <h1 style={{ margin: "0 0 16px", fontSize: 28, fontWeight: 700, color: "#fff", fontFamily: F, lineHeight: 1.2, maxWidth: "70%" }}>
+                  {docTitle}
+                </h1>
+                <div style={{ display: "flex", gap: 20 }}>
+                  <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", fontFamily: F }}>{docAudience}</span>
+                  <span style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", fontFamily: F }}>·</span>
+                  <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", fontFamily: F }}>FY25</span>
+                </div>
+                {/* WBG accent bar */}
+                <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 4, background: "linear-gradient(90deg, #0F766E, #0288D1, #7C3AED)" }} />
+                {/* Slide number */}
+                <div style={{ position: "absolute", bottom: 16, right: 24, fontSize: 10, color: "rgba(255,255,255,0.25)", fontFamily: F }}>1 / {sections.length + 1}</div>
+              </div>
+
+              {/* One slide per section */}
+              {sections.map((s, i) => (
+                <div
+                  key={s.id}
+                  style={{
+                    aspectRatio: "16/9", borderRadius: 10, overflow: "hidden",
+                    background: "#0a1929",
+                    display: "flex", flexDirection: "column",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    position: "relative",
+                  }}
+                >
+                  {/* Slide header */}
+                  <div style={{
+                    padding: "22px 36px 14px",
+                    borderBottom: "1px solid rgba(255,255,255,0.06)",
+                    flexShrink: 0,
+                  }}>
+                    <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#0288D1", fontFamily: F, marginBottom: 5 }}>
+                      {`Section ${i + 1}`}
+                    </div>
+                    <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "rgba(255,255,255,0.95)", fontFamily: F }}>
+                      {s.title}
+                    </h2>
+                  </div>
+
+                  {/* Slide body */}
+                  <div style={{ flex: 1, padding: "16px 36px 22px", overflow: "hidden", display: "flex", gap: 28 }}>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ margin: 0, fontSize: 11.5, lineHeight: 1.7, color: "rgba(255,255,255,0.72)", fontFamily: F, display: "-webkit-box", WebkitLineClamp: 7, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                        {s.paragraphs?.[0] ?? s.body}
+                      </p>
+                      {s.bullets && s.bullets.slice(0, 3).map((b, bi) => (
+                        <div key={bi} style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "flex-start" }}>
+                          <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#0288D1", flexShrink: 0, marginTop: 6 }} />
+                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.62)", fontFamily: F, lineHeight: 1.55 }}>{b}</span>
+                        </div>
+                      ))}
+                      {s.lessons && s.lessons.slice(0, 2).map((l, li) => (
+                        <div key={li} style={{ marginTop: 8 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.85)", fontFamily: F }}>{l.lead} </span>
+                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", fontFamily: F }}>{l.body.slice(0, 120)}{l.body.length > 120 ? "…" : ""}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Country stories sidebar */}
+                    {s.countryStories && s.countryStories.length > 0 && (
+                      <div style={{ width: 180, flexShrink: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+                        {s.countryStories.slice(0, 2).map((cs, ci) => (
+                          <div key={ci} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 7, padding: "8px 10px" }}>
+                            <div style={{ fontSize: 10.5, fontWeight: 600, color: "rgba(255,255,255,0.80)", fontFamily: F }}>{cs.flag} {cs.name}</div>
+                            {cs.result && <div style={{ fontSize: 10, color: "#34D399", fontFamily: F, marginTop: 3 }}>→ {cs.result}</div>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* WBG accent bar */}
+                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: "linear-gradient(90deg, #0F766E, #0288D1, #7C3AED)" }} />
+                  {/* Slide number */}
+                  <div style={{ position: "absolute", bottom: 10, right: 18, fontSize: 9.5, color: "rgba(255,255,255,0.20)", fontFamily: F }}>{i + 2} / {sections.length + 1}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── Infographic view ──────────────────────────── */}
+          {tab === "infographic" && (
+            <div style={{ padding: "28px 32px", fontFamily: F }}>
+              {/* Title band */}
+              <div style={{
+                background: "linear-gradient(135deg, #0a2540, #1a3a5c)",
+                borderRadius: 12, padding: "24px 32px", marginBottom: 20,
+                border: "1px solid rgba(255,255,255,0.08)",
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+              }}>
+                <div>
+                  <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(255,255,255,0.38)", marginBottom: 6 }}>
+                    WBG · IDA FY25
+                  </div>
+                  <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#fff", lineHeight: 1.25 }}>{docTitle}</h1>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.42)", marginTop: 4 }}>{docAudience}</div>
+                </div>
+                <div style={{ textAlign: "center", padding: "12px 20px", background: "rgba(2,136,209,0.15)", borderRadius: 10, border: "1px solid rgba(2,136,209,0.30)" }}>
+                  <div style={{ fontSize: 32, fontWeight: 800, color: "#38BDF8", lineHeight: 1 }}>{hero.metric.value}</div>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.52)", marginTop: 4, maxWidth: 140, textAlign: "center" }}>{hero.metric.caption}</div>
+                </div>
+              </div>
+
+              {/* Section cards grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                {sections.map((s, i) => {
+                  const accentColors = ["#0288D1","#34D399","#818CF8","#F59E0B","#F87171"];
+                  const accent = accentColors[i % accentColors.length];
+                  const bodyText = s.paragraphs?.[0] ?? s.body;
+                  return (
+                    <div key={s.id} style={{
+                      background: "rgba(255,255,255,0.03)",
+                      border: `1px solid ${accent}28`,
+                      borderTop: `3px solid ${accent}`,
+                      borderRadius: 10, padding: "16px 18px",
+                    }}>
+                      <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.10em", textTransform: "uppercase", color: accent, marginBottom: 6 }}>
+                        {`0${i + 1}`}
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.90)", marginBottom: 8, lineHeight: 1.3 }}>
+                        {s.title}
+                      </div>
+                      <p style={{ margin: 0, fontSize: 11, lineHeight: 1.65, color: "rgba(255,255,255,0.55)", display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                        {bodyText}
+                      </p>
+                      {s.keyResults && s.keyResults.length > 0 && (
+                        <div style={{ marginTop: 10, display: "flex", gap: 10 }}>
+                          {s.keyResults.slice(0, 2).map((kr, ki) => (
+                            <div key={ki} style={{ background: `${accent}15`, borderRadius: 6, padding: "6px 10px", flex: 1 }}>
+                              <div style={{ fontSize: 14, fontWeight: 700, color: accent, lineHeight: 1 }}>{kr.value}</div>
+                              <div style={{ fontSize: 9.5, color: "rgba(255,255,255,0.40)", marginTop: 2 }}>{kr.consequence.slice(0, 40)}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {s.countryStories && s.countryStories.length > 0 && (
+                        <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 5 }}>
+                          {s.countryStories.map((cs, ci) => (
+                            <span key={ci} style={{ fontSize: 10, color: "rgba(255,255,255,0.50)", background: "rgba(255,255,255,0.05)", borderRadius: 4, padding: "2px 7px" }}>
+                              {cs.flag} {cs.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Footer with Generate menu ───────────────────────────────────────────────
 
 const GENERATE_OPTIONS = [
@@ -3763,9 +4118,11 @@ const GENERATE_OPTIONS = [
 function NarrativeFooter({
   onGenerate,
   generatedKinds = [],
+  onPreview,
 }: {
   onGenerate?: (kind: string) => void;
   generatedKinds?: string[];
+  onPreview?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -3781,10 +4138,19 @@ function NarrativeFooter({
 
   return (
     <footer className="shrink-0 px-5 py-3 border-t border-gray-100 bg-gray-50">
-      <div ref={ref} className="relative">
+      <div ref={ref} className="relative flex items-center gap-2">
+        {/* Preview — secondary */}
+        <button
+          onClick={onPreview}
+          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[13px] font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+        >
+          <IconEye size={14} />
+          Preview
+        </button>
+        {/* Generate — primary, grows to fill remaining space */}
         <button
           onClick={() => setOpen((v) => !v)}
-          className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[13px] font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[13px] font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors"
           aria-haspopup="menu"
           aria-expanded={open}
         >

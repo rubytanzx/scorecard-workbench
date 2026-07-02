@@ -765,4 +765,5 @@ export const FLOW_SKELETONS = {
   "hnp-measurement":       BASE_FLOW_SKELETONS["health-gap"],
   "methods-taxonomy":      BASE_FLOW_SKELETONS["africa-poverty"],
   "methods-compilation":   BASE_FLOW_SKELETONS["africa-poverty"],
+  "norway-donor":          BASE_FLOW_SKELETONS["africa-poverty"],
 } satisfies Record<FlowId, NarrativeSkeletonSet>;
