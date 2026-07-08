@@ -11,10 +11,10 @@ export default function SearchHero() {
     >
       <div style={{ textAlign: "center", marginBottom: 24 }}>
         <h1 style={{ fontFamily: F, margin: 0, lineHeight: 1.18, letterSpacing: "-0.03em" }}>
-          <span style={{ display: "block", fontSize: "clamp(28px, 4vw, 44px)", fontWeight: 300, color: "rgba(255,255,255,0.88)" }}>
+          <span style={{ display: "block", fontSize: "clamp(28px, 4vw, 44px)", fontWeight: 300, color: "var(--hero-subtitle)" }}>
             The World Bank Group
           </span>
-          <span style={{ display: "block", fontSize: "clamp(28px, 4vw, 44px)", fontWeight: 700, color: "rgba(255,255,255,0.96)" }}>
+          <span style={{ display: "block", fontSize: "clamp(28px, 4vw, 44px)", fontWeight: 700, color: "var(--hero-title)" }}>
             Scorecard Workbench
           </span>
         </h1>

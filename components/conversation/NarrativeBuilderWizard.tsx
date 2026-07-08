@@ -6,6 +6,10 @@ import {
 } from "@tabler/icons-react";
 import { outcomeAreas } from "@/lib/mockData";
 import { challengeSets, narrativeStrength, narrativeScore, getGapTips, getDimensionScores, ARCHETYPE_META, NARRATIVE_STRENGTH_META, type ChallengeSet, type GapTip, type DimensionScores } from "@/lib/challengeData";
+import { useTheme } from "@/contexts/ThemeContext";
+
+const WizardThemeCtx = React.createContext(false);
+const useIsDark = () => React.useContext(WizardThemeCtx);
 
 // Map challengeData slugs → outcomeArea names
 const OUTCOME_SLUG_MAP: Record<string, string> = {
@@ -67,6 +71,7 @@ function WizardThoughtProcess({ steps, onComplete }: {
   steps: WizardThoughtStep[];
   onComplete?: () => void;
 }) {
+  const isDark = useIsDark();
   const [visibleCount, setVisibleCount] = useState(0);
   const [open, setOpen] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
@@ -101,27 +106,27 @@ function WizardThoughtProcess({ steps, onComplete }: {
         ) : (
           <span style={{ display: "flex", gap: 3, alignItems: "center" }}>
             {[0, 1, 2].map((i) => (
-              <span key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: "rgba(255,255,255,0.35)", display: "inline-block", animation: "nbDotPulse 1.2s ease-in-out infinite", animationDelay: `${i * 0.2}s` }} />
+              <span key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: isDark ? "rgba(255,255,255,0.35)" : "#5A6B7C", display: "inline-block", animation: "nbDotPulse 1.2s ease-in-out infinite", animationDelay: `${i * 0.2}s` }} />
             ))}
           </span>
         )}
-        <span style={{ fontSize: 12.5, fontFamily: "'Open Sans', sans-serif", color: done ? "rgba(255,255,255,0.50)" : "rgba(255,255,255,0.40)", fontStyle: done ? "normal" : "italic" }}>
+        <span style={{ fontSize: 12.5, fontFamily: "'Open Sans', sans-serif", color: done ? (isDark ? "rgba(255,255,255,0.50)" : "#5A6B7C") : (isDark ? "rgba(255,255,255,0.40)" : "#5A6B7C"), fontStyle: done ? "normal" : "italic" }}>
           {done ? `Thought for ${elapsedSec}s` : "Thinking…"}
         </span>
         {done && (
           <span style={{ display: "inline-flex", transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
-            <IconChevronDown size={13} color="rgba(255,255,255,0.35)" />
+            <IconChevronDown size={13} color={isDark ? "rgba(255,255,255,0.35)" : "#5A6B7C"} />
           </span>
         )}
       </button>
 
       {open && (
-        <div style={{ marginLeft: 4, paddingLeft: 12, borderLeft: "2px solid rgba(255,255,255,0.10)", display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ marginLeft: 4, paddingLeft: 12, borderLeft: `2px solid ${isDark ? "rgba(255,255,255,0.10)" : "rgba(0,57,107,0.08)"}`, display: "flex", flexDirection: "column", gap: 4 }}>
           {steps.map((step, i) => (
-            <div key={i} style={{ fontSize: 12, color: "rgba(255,255,255,0.42)", fontFamily: "'Open Sans', sans-serif", lineHeight: 1.5, opacity: i < visibleCount ? 1 : 0, transition: "opacity 0.3s ease" }}>
+            <div key={i} style={{ fontSize: 12, color: isDark ? "rgba(255,255,255,0.42)" : "#5A6B7C", fontFamily: "'Open Sans', sans-serif", lineHeight: 1.5, opacity: i < visibleCount ? 1 : 0, transition: "opacity 0.3s ease" }}>
               {step.text}
               {step.detail && i < visibleCount && (
-                <span style={{ marginLeft: 6, color: "rgba(255,255,255,0.25)", fontFamily: "monospace", fontSize: 10.5 }}>
+                <span style={{ marginLeft: 6, color: isDark ? "rgba(255,255,255,0.25)" : "#8A9BAB", fontFamily: "monospace", fontSize: 10.5 }}>
                   → {step.detail}
                 </span>
               )}
@@ -149,14 +154,16 @@ function AiBlock({ children }: { children: React.ReactNode }) {
 }
 
 function AiText({ children }: { children: React.ReactNode }) {
+  const isDark = useIsDark();
   return (
-    <p style={{ fontSize: 14, color: "rgba(255,255,255,0.88)", lineHeight: "1.6", fontFamily: "'Open Sans', sans-serif", margin: 0 }}>
+    <p style={{ fontSize: 14, color: isDark ? "rgba(255,255,255,0.88)" : "#1A2E3A", lineHeight: "1.6", fontFamily: "'Open Sans', sans-serif", margin: 0 }}>
       {children}
     </p>
   );
 }
 
 function UserBubble({ text }: { text: string }) {
+  const isDark = useIsDark();
   const ref = React.useRef<HTMLDivElement>(null);
   const [radius, setRadius] = React.useState(9999);
   React.useLayoutEffect(() => {
@@ -165,11 +172,11 @@ function UserBubble({ text }: { text: string }) {
   return (
     <div className="self-end narrative-content-enter" style={{ display: "flex", alignItems: "flex-end", gap: 10, maxWidth: "72%" }}>
       <div ref={ref} style={{
-        background: "rgba(100, 116, 139, 0.35)",
+        background: isDark ? "rgba(100, 116, 139, 0.35)" : "rgba(0,57,107,0.09)",
         borderRadius: radius,
         padding: "10px 16px",
         fontSize: 13.5,
-        color: "rgba(226, 232, 240, 0.95)",
+        color: isDark ? "rgba(226, 232, 240, 0.95)" : "#3D5166",
         fontFamily: "'Open Sans', sans-serif",
         lineHeight: 1.5,
         fontWeight: 400,
@@ -184,10 +191,11 @@ function UserBubble({ text }: { text: string }) {
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
+  const isDark = useIsDark();
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       <IconSparkles size={11} color="rgba(139,92,246,0.7)" />
-      <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)", fontFamily: "'Open Sans', sans-serif" }}>
+      <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", color: isDark ? "rgba(255,255,255,0.35)" : "#5A6B7C", fontFamily: "'Open Sans', sans-serif" }}>
         {children}
       </span>
     </div>
@@ -211,13 +219,14 @@ function NarrativeGuidanceWidget({
   onAddToNarrative: (tip: GapTip) => void;
   buttonsHidden?: boolean;
 }) {
+  const isDark = useIsDark();
   const F = "'Open Sans', sans-serif";
   const sectionLabel = DIM_SECTION_LABELS[tip.dimensionNum];
   return (
     <div className="narrative-content-enter" style={{
       borderRadius: 14,
-      border: "1px solid rgba(255,255,255,0.07)",
-      background: "rgba(12, 20, 30, 0.72)",
+      border: `1px solid ${isDark ? "rgba(255,255,255,0.07)" : "rgba(0,57,107,0.12)"}`,
+      background: isDark ? "rgba(12, 20, 30, 0.72)" : "rgba(240,247,254,0.95)",
       backdropFilter: "blur(28px)",
       WebkitBackdropFilter: "blur(28px)",
       boxShadow: "0 8px 32px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.06)",
@@ -227,7 +236,7 @@ function NarrativeGuidanceWidget({
       gap: 11,
     }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-        <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.28)", fontFamily: F, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+        <span style={{ fontSize: 10, fontWeight: 600, color: isDark ? "rgba(255,255,255,0.28)" : "#6B7C8E", fontFamily: F, letterSpacing: "0.08em", textTransform: "uppercase" }}>
           Narrative Guidance
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
@@ -236,15 +245,15 @@ function NarrativeGuidanceWidget({
           </span>
           {sectionLabel && (
             <>
-              <span style={{ fontSize: 10, color: "rgba(255,255,255,0.18)", fontFamily: F }}>→</span>
-              <span style={{ fontSize: 11, fontWeight: 500, color: "rgba(255,255,255,0.38)", fontFamily: F, letterSpacing: "0.01em" }}>
+              <span style={{ fontSize: 10, color: isDark ? "rgba(255,255,255,0.18)" : "rgba(0,57,107,0.14)", fontFamily: F }}>→</span>
+              <span style={{ fontSize: 11, fontWeight: 500, color: isDark ? "rgba(255,255,255,0.38)" : "#5A6B7C", fontFamily: F, letterSpacing: "0.01em" }}>
                 {sectionLabel}
               </span>
             </>
           )}
         </div>
       </div>
-      <p style={{ margin: 0, fontSize: 13, fontFamily: F, lineHeight: 1.65, color: "rgba(255,255,255,0.75)" }}>
+      <p style={{ margin: 0, fontSize: 13, fontFamily: F, lineHeight: 1.65, color: isDark ? "rgba(255,255,255,0.75)" : "#4E6174" }}>
         {tip.tip}
       </p>
       {!buttonsHidden && (
@@ -254,12 +263,12 @@ function NarrativeGuidanceWidget({
             onClick={() => onDismiss(tip.id)}
             style={{
               padding: "6px 16px", borderRadius: 8, fontSize: 12.5, fontWeight: 500,
-              background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)",
-              color: "rgba(255,255,255,0.55)", cursor: "pointer", fontFamily: F,
+              background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,57,107,0.05)", border: `1px solid ${isDark ? "rgba(255,255,255,0.10)" : "rgba(0,57,107,0.08)"}`,
+              color: isDark ? "rgba(255,255,255,0.55)" : "#5A6B7C", cursor: "pointer", fontFamily: F,
               transition: "background 120ms, color 120ms",
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.10)"; e.currentTarget.style.color = "rgba(255,255,255,0.80)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "rgba(255,255,255,0.55)"; }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.10)" : "rgba(0,57,107,0.08)"; e.currentTarget.style.color = isDark ? "rgba(255,255,255,0.80)" : "#3D5166"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,57,107,0.05)"; e.currentTarget.style.color = isDark ? "rgba(255,255,255,0.55)" : "#5A6B7C"; }}
           >
             Dismiss
           </button>
@@ -298,6 +307,7 @@ function SelectionChips({
   onSubmit?: () => void;
   disabled?: boolean;
 }) {
+  const isDark = useIsDark();
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, opacity: disabled ? 0.5 : 1, pointerEvents: disabled ? "none" : "auto" }}>
       <SectionLabel>{label}</SectionLabel>
@@ -313,18 +323,18 @@ function SelectionChips({
                 display: "flex", alignItems: "center", gap: 5,
                 padding: "6px 12px", borderRadius: 100, fontSize: 13,
                 fontFamily: "'Open Sans', sans-serif",
-                border: `1px solid ${isSelected ? "rgba(255,255,255,0.40)" : "rgba(255,255,255,0.18)"}`,
-                background: isSelected ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.07)",
-                color: isSelected ? "rgba(255,255,255,0.97)" : "rgba(255,255,255,0.82)",
+                border: `1px solid ${isSelected ? (isDark ? "rgba(255,255,255,0.40)" : "rgba(0,57,107,0.50)") : (isDark ? "rgba(255,255,255,0.18)" : "rgba(0,57,107,0.14)")}`,
+                background: isSelected ? (isDark ? "rgba(255,255,255,0.15)" : "rgba(0,57,107,0.10)") : (isDark ? "rgba(255,255,255,0.07)" : "rgba(0,57,107,0.06)"),
+                color: isSelected ? (isDark ? "rgba(255,255,255,0.97)" : "#1A2E3A") : (isDark ? "rgba(255,255,255,0.82)" : "#3D5166"),
                 cursor: "pointer", transition: "all 0.15s ease",
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.13)"; e.currentTarget.style.color = "rgba(255,255,255,0.97)"; }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.13)" : "rgba(0,57,107,0.10)"; e.currentTarget.style.color = isDark ? "rgba(255,255,255,0.97)" : "#1A2E3A"; }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = isSelected ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.07)";
-                e.currentTarget.style.color = isSelected ? "rgba(255,255,255,0.97)" : "rgba(255,255,255,0.82)";
+                e.currentTarget.style.background = isSelected ? (isDark ? "rgba(255,255,255,0.15)" : "rgba(0,57,107,0.10)") : (isDark ? "rgba(255,255,255,0.07)" : "rgba(0,57,107,0.06)");
+                e.currentTarget.style.color = isSelected ? (isDark ? "rgba(255,255,255,0.97)" : "#1A2E3A") : (isDark ? "rgba(255,255,255,0.82)" : "#3D5166");
               }}
             >
-              {isSelected && <IconCheck size={11} color="rgba(255,255,255,0.90)" />}
+              {isSelected && <IconCheck size={11} color={isDark ? "rgba(255,255,255,0.90)" : "#1A2E3A"} />}
               {opt.label}
             </button>
           );
@@ -365,6 +375,7 @@ function NarrativeStrengthPanel({
   resolvedDimensions: Set<number>;
   loadingDimensions: Set<number>;
 }) {
+  const isDark = useIsDark();
   const F = "'Open Sans', sans-serif";
   const base = getDimensionScores(challenge);
   const scores: DimensionScores = {
@@ -383,8 +394,8 @@ function NarrativeStrengthPanel({
   return (
     <div style={{
       borderRadius: 12,
-      border: "1px solid rgba(255,255,255,0.07)",
-      background: "rgba(12,20,30,0.65)",
+      border: `1px solid ${isDark ? "rgba(255,255,255,0.07)" : "rgba(0,57,107,0.12)"}`,
+      background: isDark ? "rgba(12,20,30,0.65)" : "rgba(240,247,254,0.95)",
       backdropFilter: "blur(20px)",
       WebkitBackdropFilter: "blur(20px)",
       padding: "16px 18px",
@@ -392,13 +403,13 @@ function NarrativeStrengthPanel({
       flexDirection: "column",
       gap: 14,
     }}>
-      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.28)", fontFamily: F }}>
+      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: isDark ? "rgba(255,255,255,0.28)" : "#6B7C8E", fontFamily: F }}>
         Narrative Strength
       </span>
       <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
         {/* Donut */}
         <svg width={112} height={112} viewBox="0 0 112 112" style={{ flexShrink: 0 }} aria-hidden>
-          <circle cx={cx} cy={cy} r={R} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={10} />
+          <circle cx={cx} cy={cy} r={R} fill="none" stroke={isDark ? "rgba(255,255,255,0.06)" : "rgba(0,57,107,0.10)"} strokeWidth={10} />
           <circle
             cx={cx} cy={cy} r={R} fill="none"
             stroke={arcColor} strokeWidth={10} strokeLinecap="round"
@@ -407,8 +418,8 @@ function NarrativeStrengthPanel({
             transform={`rotate(-90 ${cx} ${cy})`}
             style={{ transition: "stroke-dashoffset 800ms ease, stroke 400ms ease" }}
           />
-          <text x={cx} y={cy - 4} textAnchor="middle" fontSize={20} fontWeight={700} fill="rgba(255,255,255,0.95)" fontFamily={F}>{overall}%</text>
-          <text x={cx} y={cy + 14} textAnchor="middle" fontSize={10} fill="rgba(255,255,255,0.35)" fontFamily={F}>overall</text>
+          <text x={cx} y={cy - 4} textAnchor="middle" fontSize={20} fontWeight={700} fill={isDark ? "rgba(255,255,255,0.95)" : "#15353F"} fontFamily={F}>{overall}%</text>
+          <text x={cx} y={cy + 14} textAnchor="middle" fontSize={10} fill={isDark ? "rgba(255,255,255,0.35)" : "#6B7C8E"} fontFamily={F}>overall</text>
         </svg>
         {/* Dimension rows */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 9 }}>
@@ -418,15 +429,15 @@ function NarrativeStrengthPanel({
             const color = score >= 80 ? "#34D399" : score >= 65 ? "#FBBF24" : "#F87171";
             return (
               <div key={key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.72)", fontFamily: F, width: 128, flexShrink: 0 }}>{label}</span>
-                <div style={{ flex: 1, height: 4, borderRadius: 100, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                <span style={{ fontSize: 12.5, color: isDark ? "rgba(255,255,255,0.72)" : "#4E6174", fontFamily: F, width: 128, flexShrink: 0 }}>{label}</span>
+                <div style={{ flex: 1, height: 4, borderRadius: 100, background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,57,107,0.08)", overflow: "hidden" }}>
                   {isLoading ? (
-                    <div style={{ height: "100%", width: "55%", borderRadius: 100, background: "linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.18) 50%, rgba(255,255,255,0.04) 100%)", backgroundSize: "200% 100%", animation: "nbShimmer 1.4s ease-in-out infinite" }} />
+                    <div style={{ height: "100%", width: "55%", borderRadius: 100, background: `linear-gradient(90deg, ${isDark ? "rgba(255,255,255,0.04)" : "rgba(0,57,107,0.03)"} 0%, ${isDark ? "rgba(255,255,255,0.18)" : "rgba(0,57,107,0.12)"} 50%, ${isDark ? "rgba(255,255,255,0.04)" : "rgba(0,57,107,0.03)"} 100%)`, backgroundSize: "200% 100%", animation: "nbShimmer 1.4s ease-in-out infinite" }} />
                   ) : (
                     <div style={{ height: "100%", borderRadius: 100, width: `${score}%`, background: color, transition: "width 700ms ease, background 400ms ease" }} />
                   )}
                 </div>
-                <span style={{ fontSize: 12, fontWeight: 700, fontFamily: F, color: isLoading ? "rgba(255,255,255,0.20)" : color, width: 36, textAlign: "right", transition: "color 400ms ease" }}>
+                <span style={{ fontSize: 12, fontWeight: 700, fontFamily: F, color: isLoading ? (isDark ? "rgba(255,255,255,0.20)" : "rgba(0,57,107,0.20)") : color, width: 36, textAlign: "right", transition: "color 400ms ease" }}>
                   {isLoading ? "—" : `${score}%`}
                 </span>
               </div>
@@ -445,14 +456,15 @@ function ChallengeCard({
 }: {
   challenge: ChallengeSet; focal: boolean; selected: boolean; onClick: () => void; onExplore: () => void; hideExplore?: boolean;
 }) {
+  const isDark = useIsDark();
   const archMeta = ARCHETYPE_META[challenge.archetype];
   const strength = narrativeStrength(challenge);
   const strengthMeta = NARRATIVE_STRENGTH_META[strength];
   const score = narrativeScore(challenge);
 
   const borderColor = selected
-    ? "rgba(255,255,255,0.28)"
-    : focal ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.07)";
+    ? (isDark ? "rgba(255,255,255,0.28)" : "rgba(0,57,107,0.45)")
+    : focal ? (isDark ? "rgba(255,255,255,0.12)" : "rgba(0,57,107,0.20)") : (isDark ? "rgba(255,255,255,0.07)" : "rgba(0,57,107,0.12)");
 
   return (
     <div
@@ -462,7 +474,7 @@ function ChallengeCard({
       style={{
         width: 300, minHeight: 420, display: "flex", flexDirection: "column",
         borderRadius: 16, border: `1px solid ${borderColor}`,
-        background: selected ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.03)",
+        background: selected ? (isDark ? "rgba(255,255,255,0.07)" : "rgba(0,57,107,0.06)") : (isDark ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.85)"),
         cursor: "pointer", overflow: "hidden",
         transition: "border-color 0.2s, background 0.2s", flexShrink: 0,
       }}
@@ -471,7 +483,7 @@ function ChallengeCard({
       <div style={{ padding: "14px 14px 0", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
           {challenge.outcomeAreaIds.map((slug) => (
-            <span key={slug} style={{ fontSize: 10.5, fontWeight: 500, padding: "2px 8px", borderRadius: 4, border: "1px solid rgba(255,255,255,0.18)", background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.75)", fontFamily: "'Open Sans', sans-serif", whiteSpace: "nowrap" }}>
+            <span key={slug} style={{ fontSize: 10.5, fontWeight: 500, padding: "2px 8px", borderRadius: 4, border: `1px solid ${isDark ? "rgba(255,255,255,0.18)" : "rgba(0,57,107,0.14)"}`, background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,57,107,0.06)", color: isDark ? "rgba(255,255,255,0.75)" : "#4E6174", fontFamily: "'Open Sans', sans-serif", whiteSpace: "nowrap" }}>
               {OUTCOME_SLUG_MAP[slug] ?? slug}
             </span>
           ))}
@@ -480,28 +492,28 @@ function ChallengeCard({
 
       {/* Title */}
       <div style={{ padding: "10px 14px 0" }}>
-        <p style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.35, color: "rgba(255,255,255,0.92)", fontFamily: "'Open Sans', sans-serif", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+        <p style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.35, color: isDark ? "rgba(255,255,255,0.92)" : "#1A2E3A", fontFamily: "'Open Sans', sans-serif", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
           {challenge.shortTitle}
         </p>
       </div>
 
       {/* Approach + evidence counts */}
       <div style={{ padding: "6px 14px 0", display: "flex", flexDirection: "column", gap: 2 }}>
-        <p style={{ fontSize: 11.5, color: "rgba(255,255,255,0.72)", fontFamily: "'Open Sans', sans-serif" }}>
-          <span style={{ color: "rgba(255,255,255,0.55)" }}>Approach: </span>{archMeta.label}
+        <p style={{ fontSize: 11.5, color: isDark ? "rgba(255,255,255,0.72)" : "#4E6174", fontFamily: "'Open Sans', sans-serif" }}>
+          <span style={{ color: isDark ? "rgba(255,255,255,0.55)" : "#5A6B7C" }}>Approach: </span>{archMeta.label}
         </p>
-        <p style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", fontFamily: "'Open Sans', sans-serif" }}>
+        <p style={{ fontSize: 11, color: isDark ? "rgba(255,255,255,0.55)" : "#5A6B7C", fontFamily: "'Open Sans', sans-serif" }}>
           Based on {challenge.padCount.toLocaleString()} PADs, {challenge.isrCount.toLocaleString()} ISRs, and {challenge.icrCount.toLocaleString()} ICRs.
         </p>
       </div>
 
-      <div style={{ height: 1, background: "rgba(255,255,255,0.07)", margin: "8px 14px" }} />
+      <div style={{ height: 1, background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,57,107,0.12)", margin: "8px 14px" }} />
 
       <div style={{ padding: "0 14px" }}>
-        <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.55)", fontFamily: "'Open Sans', sans-serif", marginBottom: 6 }}>
+        <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: isDark ? "rgba(255,255,255,0.55)" : "#5A6B7C", fontFamily: "'Open Sans', sans-serif", marginBottom: 6 }}>
           Summary
         </p>
-        <p style={{ fontSize: 12, lineHeight: 1.6, color: "rgba(255,255,255,0.75)", fontFamily: "'Open Sans', sans-serif" }}>
+        <p style={{ fontSize: 12, lineHeight: 1.6, color: isDark ? "rgba(255,255,255,0.75)" : "#4E6174", fontFamily: "'Open Sans', sans-serif" }}>
           {challenge.summary}
         </p>
         <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 8 }}>
@@ -515,15 +527,15 @@ function ChallengeCard({
         </div>
       </div>
 
-      <div style={{ height: 1, background: "rgba(255,255,255,0.07)", margin: "8px 14px 0" }} />
+      <div style={{ height: 1, background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,57,107,0.12)", margin: "8px 14px 0" }} />
 
       <div style={{ padding: "8px 14px 0" }}>
-        <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.55)", fontFamily: "'Open Sans', sans-serif", marginBottom: 6 }}>
+        <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: isDark ? "rgba(255,255,255,0.55)" : "#5A6B7C", fontFamily: "'Open Sans', sans-serif", marginBottom: 6 }}>
           Country examples
         </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {challenge.countryExamples.map((c) => (
-            <span key={c.name} style={{ fontSize: 12, color: "rgba(255,255,255,0.80)", fontFamily: "'Open Sans', sans-serif" }}>
+            <span key={c.name} style={{ fontSize: 12, color: isDark ? "rgba(255,255,255,0.80)" : "#3D5166", fontFamily: "'Open Sans', sans-serif" }}>
               {c.name}
             </span>
           ))}
@@ -551,16 +563,16 @@ function ChallengeCard({
                 display: "flex", alignItems: "center", gap: 5,
                 borderRadius: 100,
                 padding: "7px 14px",
-                background: selected ? "rgba(10,20,35,0.85)" : "rgba(10,20,35,0.92)",
+                background: selected ? (isDark ? "rgba(10,20,35,0.85)" : "rgba(255,255,255,0.80)") : (isDark ? "rgba(10,20,35,0.92)" : "rgba(255,255,255,0.95)"),
                 border: "none", cursor: "pointer",
-                fontSize: 12.5, fontWeight: 600, color: "#fff",
+                fontSize: 12.5, fontWeight: 600, color: isDark ? "#fff" : "#1A2E3A",
                 fontFamily: "'Open Sans', sans-serif",
                 letterSpacing: "0.01em",
                 transition: "background 140ms",
                 whiteSpace: "nowrap",
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(10,20,35,0.70)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = selected ? "rgba(10,20,35,0.85)" : "rgba(10,20,35,0.92)"; }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? "rgba(10,20,35,0.70)" : "rgba(255,255,255,0.70)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = selected ? (isDark ? "rgba(10,20,35,0.85)" : "rgba(255,255,255,0.80)") : (isDark ? "rgba(10,20,35,0.92)" : "rgba(255,255,255,0.95)"); }}
             >
               <IconSparkles size={12} style={{ opacity: 0.85 }} />
               Generate
@@ -576,6 +588,7 @@ function ChallengeCard({
 function ChallengeCarousel({ challenges, selectedId, onSelect, onExplore, hideExplore }: {
   challenges: ChallengeSet[]; selectedId: string | null; onSelect: (id: string) => void; onExplore: (id: string) => void; hideExplore?: boolean;
 }) {
+  const isDark = useIsDark();
   const [activeIndex, setActiveIndex] = useState(0);
   const [mounted, setMounted] = useState(false);
 
@@ -604,17 +617,17 @@ function ChallengeCarousel({ challenges, selectedId, onSelect, onExplore, hideEx
         })}
 
         {/* Left fade */}
-        <div aria-hidden style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: 80, pointerEvents: "none", zIndex: 20, background: "linear-gradient(to right, #112531 0%, #112531 20%, rgba(17,37,49,0) 100%)", opacity: activeIndex > 0 ? 1 : 0, transition: "opacity 300ms ease" }} />
+        <div aria-hidden style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: 80, pointerEvents: "none", zIndex: 20, background: `linear-gradient(to right, ${isDark ? "#112531" : "#F0F7FE"} 0%, ${isDark ? "#112531" : "#F0F7FE"} 20%, ${isDark ? "rgba(17,37,49,0)" : "rgba(240,247,254,0)"} 100%)`, opacity: activeIndex > 0 ? 1 : 0, transition: "opacity 300ms ease" }} />
         {/* Right fade */}
-        <div aria-hidden style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: 80, pointerEvents: "none", zIndex: 20, background: "linear-gradient(to left, #112531 0%, #112531 20%, rgba(17,37,49,0) 100%)", opacity: activeIndex < challenges.length - 1 ? 1 : 0, transition: "opacity 300ms ease" }} />
+        <div aria-hidden style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: 80, pointerEvents: "none", zIndex: 20, background: `linear-gradient(to left, ${isDark ? "#112531" : "#F0F7FE"} 0%, ${isDark ? "#112531" : "#F0F7FE"} 20%, ${isDark ? "rgba(17,37,49,0)" : "rgba(240,247,254,0)"} 100%)`, opacity: activeIndex < challenges.length - 1 ? 1 : 0, transition: "opacity 300ms ease" }} />
 
         {activeIndex > 0 && (
-          <button type="button" onClick={() => goTo(activeIndex - 1)} style={{ position: "absolute", top: "50%", left: 0, transform: "translateY(-50%)", zIndex: 30, width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "rgba(255,255,255,0.7)" }}>
+          <button type="button" onClick={() => goTo(activeIndex - 1)} style={{ position: "absolute", top: "50%", left: 0, transform: "translateY(-50%)", zIndex: 30, width: 32, height: 32, borderRadius: "50%", background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,57,107,0.06)", border: `1px solid ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,57,107,0.16)"}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: isDark ? "rgba(255,255,255,0.7)" : "#3D5166" }}>
             <IconChevronLeft size={16} />
           </button>
         )}
         {activeIndex < challenges.length - 1 && (
-          <button type="button" onClick={() => goTo(activeIndex + 1)} style={{ position: "absolute", top: "50%", right: 0, transform: "translateY(-50%)", zIndex: 30, width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "rgba(255,255,255,0.7)" }}>
+          <button type="button" onClick={() => goTo(activeIndex + 1)} style={{ position: "absolute", top: "50%", right: 0, transform: "translateY(-50%)", zIndex: 30, width: 32, height: 32, borderRadius: "50%", background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,57,107,0.06)", border: `1px solid ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,57,107,0.16)"}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: isDark ? "rgba(255,255,255,0.7)" : "#3D5166" }}>
             <IconChevronRight size={16} />
           </button>
         )}
@@ -622,7 +635,7 @@ function ChallengeCarousel({ challenges, selectedId, onSelect, onExplore, hideEx
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
         {challenges.map((c, i) => (
-          <button key={c.id} type="button" onClick={() => goTo(i)} style={{ borderRadius: 100, border: "none", cursor: "pointer", transition: "all 0.2s", width: activeIndex === i ? 16 : 6, height: 6, background: activeIndex === i ? "#818CF8" : "rgba(255,255,255,0.20)" }} />
+          <button key={c.id} type="button" onClick={() => goTo(i)} style={{ borderRadius: 100, border: "none", cursor: "pointer", transition: "all 0.2s", width: activeIndex === i ? 16 : 6, height: 6, background: activeIndex === i ? "#818CF8" : (isDark ? "rgba(255,255,255,0.20)" : "rgba(0,57,107,0.20)") }} />
         ))}
       </div>
     </div>
@@ -685,6 +698,7 @@ const REGION_OPTIONS = [
 ];
 
 export default function NarrativeBuilderWizard({ onComplete, inputRef, initialOutcomeArea, initialCountrySubset, onContextChipsChange, contextActionRef, onPrefillPrompt, onSetGuidanceReply, onGuidanceDimension, onPreview }: Props) {
+  const { isDark } = useTheme();
   const initialCountryId = initialCountrySubset ? mapGeographyToCountryId(initialCountrySubset) : null;
   const initialIsRegion = initialCountryId ? REGION_OPTIONS.some((r) => r.id === initialCountryId) : false;
 
@@ -922,6 +936,7 @@ export default function NarrativeBuilderWizard({ onComplete, inputRef, initialOu
   };
 
   return (
+    <WizardThemeCtx.Provider value={isDark}>
     <div style={{ display: "flex", flexDirection: "column", gap: 24, fontFamily: "'Open Sans', sans-serif" }}>
 
       {/* Initial thinking before Q1 */}
@@ -948,9 +963,9 @@ export default function NarrativeBuilderWizard({ onComplete, inputRef, initialOu
                   style={{
                     padding: "6px 12px", borderRadius: 100, fontSize: 13,
                     fontFamily: "'Open Sans', sans-serif",
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    background: "rgba(255,255,255,0.07)",
-                    color: "rgba(255,255,255,0.88)",
+                    border: `1px solid ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,57,107,0.10)"}`,
+                    background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,57,107,0.06)",
+                    color: isDark ? "rgba(255,255,255,0.88)" : "#1A2E3A",
                     cursor: "pointer", transition: "all 0.15s ease",
                   }}
                 >
@@ -980,11 +995,11 @@ export default function NarrativeBuilderWizard({ onComplete, inputRef, initialOu
               <div key={a.name} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                 <span style={{ color: "#34D399", fontSize: 16, lineHeight: 1, marginTop: 2, flexShrink: 0 }}>•</span>
                 <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                  <p style={{ margin: 0, fontSize: 13.5, fontFamily: "'Open Sans', sans-serif", lineHeight: 1.55, color: "rgba(255,255,255,0.88)" }}>
+                  <p style={{ margin: 0, fontSize: 13.5, fontFamily: "'Open Sans', sans-serif", lineHeight: 1.55, color: isDark ? "rgba(255,255,255,0.88)" : "#1A2E3A" }}>
                     <strong style={{ fontWeight: 600 }}>{a.name}</strong>
-                    <span style={{ color: "rgba(255,255,255,0.55)" }}>{" — "}{a.stat}</span>
+                    <span style={{ color: isDark ? "rgba(255,255,255,0.55)" : "#5A6B7C" }}>{" — "}{a.stat}</span>
                   </p>
-                  <p style={{ margin: 0, fontSize: 12.5, fontFamily: "'Open Sans', sans-serif", lineHeight: 1.6, color: "rgba(255,255,255,0.5)" }}>
+                  <p style={{ margin: 0, fontSize: 12.5, fontFamily: "'Open Sans', sans-serif", lineHeight: 1.6, color: isDark ? "rgba(255,255,255,0.50)" : "#5A6B7C" }}>
                     {a.detail}
                   </p>
                 </div>
@@ -1006,7 +1021,7 @@ export default function NarrativeBuilderWizard({ onComplete, inputRef, initialOu
       {/* Q2: Country Scope */}
       {(phase === "q2" || phase === "q2b" || phase === "q2-thinking" || phase === "q3" || phase === "q3-thinking" || phase === "q3-exploring") && (
         <AiBlock>
-          <AiText>OK, for <strong style={{ fontWeight: 600, color: "rgba(255,255,255,0.95)" }}>{typedAreaText}</strong> — what geographical subset would you like to focus on?</AiText>
+          <AiText>OK, for <strong style={{ fontWeight: 600, color: isDark ? "rgba(255,255,255,0.95)" : "#1A2E3A" }}>{typedAreaText}</strong> — what geographical subset would you like to focus on?</AiText>
           <SelectionChips
             label="Country Scope"
             options={COUNTRY_OPTIONS}
@@ -1079,14 +1094,14 @@ export default function NarrativeBuilderWizard({ onComplete, inputRef, initialOu
         return (
           <AiBlock>
             <AiText>{c.summary}</AiText>
-            <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.75, color: "rgba(255,255,255,0.62)", fontFamily: "'Open Sans', sans-serif" }}>
+            <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.75, color: isDark ? "rgba(255,255,255,0.62)" : "#4E6174", fontFamily: "'Open Sans', sans-serif" }}>
               {`The evidence base covers ${c.padCount.toLocaleString()} PADs, ${c.isrCount.toLocaleString()} ISRs, and ${c.icrCount.toLocaleString()} ICRs across ${c.countryCount} IDA countries, with `}
-              <span style={{ color: "rgba(255,255,255,0.62)" }}>{c.indicators.join(", ")}</span>
+              <span style={{ color: isDark ? "rgba(255,255,255,0.62)" : "#4E6174" }}>{c.indicators.join(", ")}</span>
               {" as the key indicators tracked. "}
               {c.countryExamples.map((ex) => ex.name).join(", ")}
               {" are among the most active country cases. "}
               {"Indicator momentum is "}
-              <strong style={{ color: "rgba(255,255,255,0.62)", fontWeight: 700 }}>{c.movementTag}</strong>
+              <strong style={{ color: isDark ? "rgba(255,255,255,0.62)" : "#4E6174", fontWeight: 700 }}>{c.movementTag}</strong>
               {" — "}
               {c.indicatorMovement.charAt(0).toLowerCase() + c.indicatorMovement.slice(1)}
               {"."}
@@ -1133,14 +1148,14 @@ export default function NarrativeBuilderWizard({ onComplete, inputRef, initialOu
         return (
           <AiBlock>
             <AiText>{c.summary}</AiText>
-            <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.75, color: "rgba(255,255,255,0.62)", fontFamily: "'Open Sans', sans-serif" }}>
+            <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.75, color: isDark ? "rgba(255,255,255,0.62)" : "#4E6174", fontFamily: "'Open Sans', sans-serif" }}>
               {`The evidence base covers ${c.padCount.toLocaleString()} PADs, ${c.isrCount.toLocaleString()} ISRs, and ${c.icrCount.toLocaleString()} ICRs across ${c.countryCount} IDA countries, with `}
-              <span style={{ color: "rgba(255,255,255,0.62)" }}>{c.indicators.join(", ")}</span>
+              <span style={{ color: isDark ? "rgba(255,255,255,0.62)" : "#4E6174" }}>{c.indicators.join(", ")}</span>
               {" as the key indicators tracked. "}
               {c.countryExamples.map((ex) => ex.name).join(", ")}
               {" are among the most active country cases. "}
               {"Indicator momentum is "}
-              <strong style={{ color: "rgba(255,255,255,0.62)", fontWeight: 700 }}>{c.movementTag}</strong>
+              <strong style={{ color: isDark ? "rgba(255,255,255,0.62)" : "#4E6174", fontWeight: 700 }}>{c.movementTag}</strong>
               {" — "}
               {c.indicatorMovement.charAt(0).toLowerCase() + c.indicatorMovement.slice(1)}
               {"."}
@@ -1160,8 +1175,8 @@ export default function NarrativeBuilderWizard({ onComplete, inputRef, initialOu
             <AiBlock>
               <AiText>
                 Your narrative draft is ready. I&apos;ve structured it across five sections drawing on{" "}
-                <strong style={{ color: "rgba(255,255,255,0.92)", fontWeight: 600 }}>{(c.padCount + c.isrCount + c.icrCount).toLocaleString()} project documents</strong>{" "}
-                across <strong style={{ color: "rgba(255,255,255,0.92)", fontWeight: 600 }}>{c.countryCount} IDA countries</strong>:
+                <strong style={{ color: isDark ? "rgba(255,255,255,0.92)" : "#15353F", fontWeight: 600 }}>{(c.padCount + c.isrCount + c.icrCount).toLocaleString()} project documents</strong>{" "}
+                across <strong style={{ color: isDark ? "rgba(255,255,255,0.92)" : "#15353F", fontWeight: 600 }}>{c.countryCount} IDA countries</strong>:
               </AiText>
               <ul style={{ margin: "4px 0 0", padding: "0 0 0 4px", listStyle: "none", display: "flex", flexDirection: "column", gap: 7 }}>
                 {[
@@ -1172,16 +1187,16 @@ export default function NarrativeBuilderWizard({ onComplete, inputRef, initialOu
                   { label: "Lessons Learned", body: `Surfaces what ${c.icrCount} FY25 ICRs reveal about what worked, what stalled, and what the evidence recommends` },
                 ].map(({ label, body }) => (
                   <li key={label} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                    <span style={{ flexShrink: 0, marginTop: 2, width: 5, height: 5, borderRadius: "50%", background: "rgba(52,211,153,0.55)", display: "inline-block" }} />
-                    <p style={{ margin: 0, fontSize: 13, fontFamily: F, lineHeight: 1.6, color: "rgba(255,255,255,0.70)" }}>
-                      <strong style={{ color: "rgba(255,255,255,0.88)", fontWeight: 600 }}>{label}</strong>
+                    <span style={{ flexShrink: 0, marginTop: 2, width: 5, height: 5, borderRadius: "50%", background: isDark ? "rgba(52,211,153,0.55)" : "#059669", display: "inline-block" }} />
+                    <p style={{ margin: 0, fontSize: 13, fontFamily: F, lineHeight: 1.6, color: isDark ? "rgba(255,255,255,0.70)" : "#4E6174" }}>
+                      <strong style={{ color: isDark ? "rgba(255,255,255,0.88)" : "#1A2E3A", fontWeight: 600 }}>{label}</strong>
                       {" — "}
                       {body}
                     </p>
                   </li>
                 ))}
               </ul>
-              <p style={{ margin: "8px 0 0", fontSize: 13, fontFamily: F, lineHeight: 1.6, color: "rgba(255,255,255,0.55)" }}>
+              <p style={{ margin: "8px 0 0", fontSize: 13, fontFamily: F, lineHeight: 1.6, color: isDark ? "rgba(255,255,255,0.55)" : "#5A6B7C" }}>
                 Review each section in the panel to the right and work through the guidance below to strengthen the narrative before sharing.
               </p>
             </AiBlock>
@@ -1193,9 +1208,9 @@ export default function NarrativeBuilderWizard({ onComplete, inputRef, initialOu
                   <>
                     <AiText>
                       I&apos;ve identified{" "}
-                      <strong style={{ color: "rgba(255,255,255,0.92)", fontWeight: 600 }}>{allGaps.length} area{allGaps.length > 1 ? "s" : ""}</strong>{" "}
+                      <strong style={{ color: isDark ? "rgba(255,255,255,0.92)" : "#15353F", fontWeight: 600 }}>{allGaps.length} area{allGaps.length > 1 ? "s" : ""}</strong>{" "}
                       where the narrative can be strengthened before sharing with senior management or shareholders.
-                      {" "}Click <strong style={{ color: "rgba(255,255,255,0.92)", fontWeight: 600 }}>Add to Narrative</strong>, then type what you want to change in the prompt bar and send.
+                      {" "}Click <strong style={{ color: isDark ? "rgba(255,255,255,0.92)" : "#15353F", fontWeight: 600 }}>Add to Narrative</strong>, then type what you want to change in the prompt bar and send.
                     </AiText>
                     <NarrativeGuidanceWidget
                       key={visibleGaps[0].id}
@@ -1226,7 +1241,7 @@ export default function NarrativeBuilderWizard({ onComplete, inputRef, initialOu
               <AiBlock>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {[62, 44, 70].map((w, j) => (
-                    <div key={j} style={{ height: 12, width: `${w}%`, borderRadius: 8, background: "linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.14) 50%, rgba(255,255,255,0.04) 100%)", backgroundSize: "200% 100%", animation: "nbShimmer 1.4s ease-in-out infinite", animationDelay: `${j * 0.18}s` }} />
+                    <div key={j} style={{ height: 12, width: `${w}%`, borderRadius: 8, background: `linear-gradient(90deg, ${isDark ? "rgba(255,255,255,0.04)" : "rgba(0,57,107,0.03)"} 0%, ${isDark ? "rgba(255,255,255,0.14)" : "rgba(0,57,107,0.12)"} 50%, ${isDark ? "rgba(255,255,255,0.04)" : "rgba(0,57,107,0.03)"} 100%)`, backgroundSize: "200% 100%", animation: "nbShimmer 1.4s ease-in-out infinite", animationDelay: `${j * 0.18}s` }} />
                   ))}
                 </div>
               </AiBlock>
@@ -1256,5 +1271,6 @@ export default function NarrativeBuilderWizard({ onComplete, inputRef, initialOu
         );
       })}
     </div>
+    </WizardThemeCtx.Provider>
   );
 }

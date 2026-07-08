@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import D3Globe from "./D3Globe";
+import { useTheme } from "@/contexts/ThemeContext";
+import WBGLogo from "@/components/WBGLogo";
 
 const F = "'Open Sans', sans-serif";
 
@@ -12,6 +14,8 @@ interface LoadingScreenProps {
 }
 
 export default function LoadingScreen({ isReady, progress }: LoadingScreenProps) {
+  const { isDark } = useTheme();
+  const bg = isDark ? "#1F3A4A" : "#F0F7FE";
   const [visible, setVisible] = useState(true);
   const [exiting, setExiting] = useState(false);
   const [minElapsed, setMinElapsed] = useState(false);
@@ -57,7 +61,7 @@ export default function LoadingScreen({ isReady, progress }: LoadingScreenProps)
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        background: "#1F3A4A",
+        background: bg,
         overflow: "hidden",
       }}
     >
@@ -70,7 +74,7 @@ export default function LoadingScreen({ isReady, progress }: LoadingScreenProps)
           left: 0,
           right: 0,
           height: "30%",
-          background: "linear-gradient(to top, #1F3A4A 0%, transparent 100%)",
+          background: `linear-gradient(to top, ${bg} 0%, transparent 100%)`,
           pointerEvents: "none",
           zIndex: 2,
         }}
@@ -89,26 +93,8 @@ export default function LoadingScreen({ isReady, progress }: LoadingScreenProps)
         }}
       >
         {/* Logo row */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
-          <img
-            src="/globe.svg"
-            alt=""
-            width={32}
-            height={32}
-            style={{ filter: "brightness(0) invert(1)", opacity: 0.75 }}
-          />
-          <span
-            style={{
-              fontFamily: F,
-              fontSize: 12,
-              fontWeight: 600,
-              letterSpacing: "0.12em",
-              color: "rgba(255,255,255,0.7)",
-              textTransform: "uppercase",
-            }}
-          >
-            The World Bank
-          </span>
+        <div style={{ marginBottom: 28, opacity: isDark ? 0.75 : 0.88 }}>
+          <WBGLogo isDark={isDark} />
         </div>
 
         {/* Title */}
@@ -117,7 +103,7 @@ export default function LoadingScreen({ isReady, progress }: LoadingScreenProps)
             fontFamily: F,
             fontSize: "clamp(32px, 5vw, 56px)",
             fontWeight: 300,
-            color: "#FFFFFF",
+            color: isDark ? "#FFFFFF" : "#004972",
             margin: 0,
             lineHeight: 1.15,
             textAlign: "center",
@@ -131,7 +117,7 @@ export default function LoadingScreen({ isReady, progress }: LoadingScreenProps)
             fontFamily: F,
             fontSize: "clamp(32px, 5vw, 56px)",
             fontWeight: 700,
-            color: "#FFFFFF",
+            color: isDark ? "#FFFFFF" : "#15353F",
             margin: 0,
             lineHeight: 1.15,
             textAlign: "center",
@@ -148,7 +134,7 @@ export default function LoadingScreen({ isReady, progress }: LoadingScreenProps)
             width: 320,
             height: 8,
             borderRadius: 9999,
-            background: "rgba(255,255,255,0.15)",
+            background: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,57,107,0.12)",
             overflow: "hidden",
             marginBottom: 12,
           }}
@@ -159,7 +145,7 @@ export default function LoadingScreen({ isReady, progress }: LoadingScreenProps)
               width: barWidth,
               maxWidth: 320,
               borderRadius: 9999,
-              background: "rgba(255,255,255,0.75)",
+              background: isDark ? "rgba(255,255,255,0.75)" : "#0071BC",
               transition: "width 400ms ease-out",
             }}
           />
@@ -170,7 +156,7 @@ export default function LoadingScreen({ isReady, progress }: LoadingScreenProps)
           style={{
             fontFamily: F,
             fontSize: 12,
-            color: "rgba(255,255,255,0.45)",
+            color: isDark ? "rgba(255,255,255,0.45)" : "#5A6B7C",
             letterSpacing: "0.04em",
           }}
         >

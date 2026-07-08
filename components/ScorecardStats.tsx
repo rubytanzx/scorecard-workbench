@@ -1,15 +1,11 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { usePageReady } from "@/hooks/usePageReady";
+import { useTheme } from "@/contexts/ThemeContext";
 
 const F = "'Open Sans', sans-serif";
 
 const STATS = [
-  {
-    value: "9",
-    unit: "",
-    label: "Targets",
-  },
   {
     value: "15",
     unit: "",
@@ -19,6 +15,11 @@ const STATS = [
     value: "22",
     unit: "",
     label: "Results Indicators",
+  },
+  {
+    value: "9",
+    unit: "",
+    label: "Targets",
   },
 ] as const;
 
@@ -41,6 +42,7 @@ const DURATION_MS = 1600;
 
 export default function ScorecardStats() {
   const { isReady } = usePageReady();
+  const { isDark } = useTheme();
   const [progress, setProgress] = useState(0);
   const animatedRef = useRef(false);
 
@@ -72,14 +74,14 @@ export default function ScorecardStats() {
 
   return (
     <div
-      className="w-full max-w-[860px] mx-auto"
+      className="w-full max-w-[480px] mx-auto"
       style={{ fontFamily: F }}
     >
       <style>{`
         .sc-stat-divider {
           width: 1px;
           align-self: stretch;
-          background: rgba(255,255,255,0.12);
+          background: var(--stat-divider);
           flex-shrink: 0;
         }
         @media (max-width: 639px) {
@@ -114,7 +116,7 @@ export default function ScorecardStats() {
               {i > 0 && <div className="sc-stat-divider hidden sm:block" />}
               <div
                 className="sc-stat-item flex-1 flex flex-col items-center text-center"
-                style={{ padding: "10px 24px" }}
+                style={{ padding: "10px 16px" }}
               >
                 <div
                   style={{
@@ -122,14 +124,19 @@ export default function ScorecardStats() {
                     fontWeight: 700,
                     lineHeight: 1.1,
                     letterSpacing: "-1.5px",
-                    color: "rgba(255,255,255,0.95)",
                     fontVariantNumeric: "tabular-nums",
+                    ...(isDark ? { color: "var(--stat-number)" } : {
+                      background: "linear-gradient(155deg, #003D66 15%, #0071BC 85%)",
+                      WebkitBackgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
+                      backgroundClip: "text",
+                    }),
                   }}
                 >
                   {displayed}
                   {s.suffix}
                   {s.unit && (
-                    <span style={{ fontSize: 22, fontWeight: 600, letterSpacing: "-0.5px", color: "rgba(255,255,255,0.7)" }}>
+                    <span style={{ fontSize: 22, fontWeight: 600, letterSpacing: "-0.5px", color: "var(--text-3)" }}>
                       {s.unit}
                     </span>
                   )}
@@ -139,7 +146,7 @@ export default function ScorecardStats() {
                     marginTop: 4,
                     fontSize: 13,
                     fontWeight: 600,
-                    color: "rgba(255,255,255,0.80)",
+                    color: "var(--stat-label)",
                     lineHeight: 1.3,
                   }}
                 >

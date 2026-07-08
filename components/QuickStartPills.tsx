@@ -6,34 +6,40 @@ import {
   IconSitemap,
   IconBook2,
   IconPencil,
+  IconCompass,
 } from "@tabler/icons-react";
 import { ACTION_MENUS } from "@/data/goldenPrompts";
 import { useViewMode } from "@/contexts/ViewModeContext";
+import { useTheme } from "@/contexts/ThemeContext";
 
 const F = "'Open Sans', sans-serif";
 
-// Matches PromptBar: HERO_TOP=424, PILL_HEIGHT=48
+// Only used when not in inline mode (legacy fixed positioning)
 const PROMPT_BAR_BOTTOM = 424 + 48; // 472
 const PILLS_TOP  = PROMPT_BAR_BOTTOM + 16; // 488
 const DROPDOWN_TOP = PROMPT_BAR_BOTTOM + 8; // 480
 
 
 const MENU_ICONS: Record<string, React.ComponentType<{ size?: number; style?: React.CSSProperties }>> = {
-  explore:   IconSearch,
-  analyse:   IconChartBar,
-  explain:   IconSitemap,
-  narrative: IconPencil,
+  "explore-scorecard": IconCompass,
+  analytics:          IconChartBar,
+  methods:            IconBook2,
+  insights:           IconSearch,
+  "narrative-builder": IconSitemap,
+  narrative:          IconPencil,
 };
 
 interface Props {
   visible: boolean;
+  inline?: boolean;
   onPillClick: (prompt: string) => void;
   onCreateResultsNarrative: () => void;
   onNarrativePromptClick?: (prompt: string) => void;
 }
 
-export default function QuickStartPills({ visible, onPillClick, onCreateResultsNarrative, onNarrativePromptClick }: Props) {
+export default function QuickStartPills({ visible, inline = false, onPillClick, onCreateResultsNarrative, onNarrativePromptClick }: Props) {
   const { isInternal } = useViewMode();
+  const { isDark } = useTheme();
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -72,25 +78,25 @@ export default function QuickStartPills({ visible, onPillClick, onCreateResultsN
   const activeMenu = ACTION_MENUS.find((m) => m.id === openMenu);
 
   return (
-    <div ref={containerRef}>
-      {/* Dropdown — fixed, opens just below the prompt bar */}
+    <div ref={containerRef} style={inline ? { position: "relative", width: "100%" } : undefined}>
+      {/* Dropdown — positions below pills row */}
       {activeMenu && (
         <div
           role="menu"
           aria-label={`${activeMenu.label} prompts`}
           className="rounded-2xl overflow-hidden"
           style={{
-            position: "fixed",
-            top: DROPDOWN_TOP,
-            left: "50%",
-            transform: "translateX(-50%)",
+            position: inline ? "absolute" : "fixed",
+            ...(inline ? { top: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)" } : { top: DROPDOWN_TOP, left: "50%", transform: "translateX(-50%)" }),
             zIndex: 52,
             width: "min(580px, calc(100% - 32px))",
-            background: "rgba(14,28,42,0.92)",
+            background: isDark ? "rgba(14,28,42,0.92)" : "rgba(255,255,255,0.97)",
             backdropFilter: "blur(24px)",
             WebkitBackdropFilter: "blur(24px)",
-            border: "1px solid rgba(255,255,255,0.13)",
-            boxShadow: "0 8px 40px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.07)",
+            border: isDark ? "1px solid rgba(255,255,255,0.13)" : "1px solid rgba(0,57,107,0.14)",
+            boxShadow: isDark
+              ? "0 8px 40px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.07)"
+              : "0 8px 32px rgba(0,57,107,0.12), 0 2px 8px rgba(0,57,107,0.06)",
             animation: "qs-fadeSlide 150ms ease forwards",
           }}
         >
@@ -101,7 +107,7 @@ export default function QuickStartPills({ visible, onPillClick, onCreateResultsN
                 role="menuitem"
                 type="button"
                 onClick={() => handlePromptClick(p.prompt, activeMenu.id)}
-                className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+                className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/40"
                 style={{
                   display: "block",
                   padding: "8px 12px",
@@ -110,7 +116,7 @@ export default function QuickStartPills({ visible, onPillClick, onCreateResultsN
                   fontSize: 13,
                   fontWeight: 400,
                   lineHeight: 1.55,
-                  color: "rgba(255,255,255,0.78)",
+                  color: isDark ? "rgba(255,255,255,0.78)" : "rgba(0,13,26,0.75)",
                   background: "transparent",
                   border: "none",
                   cursor: "pointer",
@@ -118,12 +124,12 @@ export default function QuickStartPills({ visible, onPillClick, onCreateResultsN
                   textAlign: "left",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.08)";
-                  e.currentTarget.style.color = "rgba(255,255,255,0.95)";
+                  e.currentTarget.style.background = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,57,107,0.06)";
+                  e.currentTarget.style.color = isDark ? "rgba(255,255,255,0.95)" : "rgba(0,13,26,0.90)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = "rgba(255,255,255,0.78)";
+                  e.currentTarget.style.color = isDark ? "rgba(255,255,255,0.78)" : "rgba(0,13,26,0.75)";
                 }}
               >
                 {p.label}
@@ -133,9 +139,19 @@ export default function QuickStartPills({ visible, onPillClick, onCreateResultsN
         </div>
       )}
 
-      {/* Pills row — fixed 16px below prompt bar */}
+      {/* Pills row */}
       <div
-        style={{
+        style={inline ? {
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          flexWrap: "nowrap",
+          whiteSpace: "nowrap",
+          width: "100%",
+          marginTop: 12,
+          zIndex: 51,
+        } : {
           position: "fixed",
           top: PILLS_TOP,
           left: "50%",
@@ -149,7 +165,7 @@ export default function QuickStartPills({ visible, onPillClick, onCreateResultsN
           pointerEvents: "auto",
         }}
       >
-        {ACTION_MENUS.filter((menu) => menu.id !== "narrative").map((menu) => {
+        {ACTION_MENUS.filter((menu) => menu.id !== "narrative" && menu.id !== "narrative-builder").map((menu) => {
           const Icon = MENU_ICONS[menu.id];
           const isOpen = openMenu === menu.id;
           return (
@@ -165,9 +181,13 @@ export default function QuickStartPills({ visible, onPillClick, onCreateResultsN
                 fontSize: 13,
                 fontWeight: 500,
                 padding: "6px 12px",
-                color: isOpen ? "rgba(255,255,255,1)" : "rgba(255,255,255,0.88)",
-                background: isOpen ? "#0288D1" : "rgba(255,255,255,0.07)",
-                border: `1px solid ${isOpen ? "#0288D1" : "rgba(255,255,255,0.12)"}`,
+                color: isOpen
+                  ? "#ffffff"
+                  : isDark ? "rgba(255,255,255,0.88)" : "rgba(0,13,26,0.75)",
+                background: isOpen
+                  ? "#0288D1"
+                  : isDark ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.82)",
+                border: `1px solid ${isOpen ? "#0288D1" : isDark ? "rgba(255,255,255,0.12)" : "rgba(0,57,107,0.18)"}`,
               }}
             >
               {Icon && <Icon size={12} style={{ opacity: 0.7, flexShrink: 0 }} />}
@@ -195,9 +215,13 @@ export default function QuickStartPills({ visible, onPillClick, onCreateResultsN
             />
             <span
               className="flex items-center gap-1.5 px-4 py-1.5 text-[12.5px] font-semibold rounded-full"
-              style={{ fontFamily: F, color: "rgba(180,255,240,0.95)", background: "rgba(10,32,30,0.88)" }}
+              style={{
+                fontFamily: F,
+                color: isDark ? "rgba(180,255,240,0.95)" : "#0b6b5a",
+                background: isDark ? "rgba(10,32,30,0.88)" : "rgba(255,255,255,0.92)",
+              }}
             >
-              <IconBook2 size={12} style={{ color: "rgba(100,240,210,0.85)", flexShrink: 0 }} />
+              <IconBook2 size={12} style={{ color: isDark ? "rgba(100,240,210,0.85)" : "#0b8c72", flexShrink: 0 }} />
               Build a Results Narrative
             </span>
           </button>

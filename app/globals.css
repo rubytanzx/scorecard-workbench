@@ -374,6 +374,12 @@ button {
   animation: d3-ring-pulse 3.6s ease-in-out infinite;
 }
 
+/* Arc pulse — traveling data-packet dash */
+@keyframes d3-arc-pulse {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -1000; }
+}
+
 /* Exit fade — applied when isReady becomes true */
 .loading-exit {
   opacity: 0 !important;

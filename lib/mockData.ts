@@ -950,6 +950,16 @@ export const trendingSides: TrendingSideCard[] = [
 
 // ─── Momentum Groups (Latest Indicator Movements) ─────────────────────────────
 
+export interface InsightComposer {
+  type: "Performance Pattern" | "Benchmark Comparison" | "Tension Finding" | "Methodology Note";
+  finding: string;
+  evidence: string[];
+  citation: string;
+  confidence: "HIGH" | "MEDIUM" | "LOW";
+  confidenceNote?: string;
+  narrativeBridge?: string; // only populate when confidence is HIGH
+}
+
 export interface MomentumRow {
   label: string;
   delta: string;       // "+11.2%" | "-6.3%" | "New"
@@ -957,6 +967,9 @@ export interface MomentumRow {
   achieved?: string;   // e.g. "217M" or "+108%"
   expected?: string;   // pipeline target, e.g. "100M"
   insight?: string;
+  structuredInsight?: InsightComposer;
+  /** Surfaced instead of structuredInsight when the follow-up is causal ("why", "what caused", "explain"). */
+  whyInsight?: InsightComposer;
   achievedGeoRegions?: string[];
   achievedGeoData?: Record<string, string>;
   expectedGeoRegions?: string[];
@@ -976,6 +989,7 @@ export interface MomentumGroup {
   subtitle: string;
   /** Composed insight paragraph surfaced in the conversation view when the card is opened. */
   insight: string;
+  structuredInsight?: InsightComposer;
   rows: MomentumRow[];
   suggestedPrompts: string[];
   /** Country names (matching Natural Earth NAME property) to highlight on the globe. */
@@ -1002,6 +1016,30 @@ export const momentumGroups: MomentumGroup[] = [
         achieved: "217M",
         expected: "100M",
         insight: "IDA-supported broadband programmes have dramatically outpaced targets — 217M people connected against a 100M plan. Bangladesh alone accounts for 38M new subscribers, while Vietnam, Kenya, and Rwanda have seen government-IDA co-funded fibre rollouts more than double expected coverage. The result reflects improved digital infrastructure investment sequencing and partnerships with telecom operators that unlocked private capital at scale.",
+        structuredInsight: {
+          type: "Performance Pattern",
+          finding: "IDA broadband programmes have more than doubled their FY25 target — 217 million people connected against a plan of 100 million.",
+          evidence: [
+            "Bangladesh enrolled 38M new subscribers — 108% above its country target (ISR P161806, FY25)",
+            "Vietnam, Kenya, and Rwanda each saw government–IDA co-funded fibre rollouts exceed projected coverage",
+            "Telecom partnerships mobilised private capital at scale, accelerating deployment across 8 IDA countries",
+          ],
+          citation: "Scorecard Results Indicator Data FY25; ISRs P161806 (Bangladesh), P152100 (Kenya), P165537 (Vietnam)",
+          confidence: "MEDIUM",
+          confidenceNote: "Figures validated for the five largest contributing countries. Data for three smaller portfolio countries subject to ISR reporting lag.",
+        },
+        whyInsight: {
+          type: "Performance Pattern",
+          finding: "Three converging factors explain the broadband surge: post-pandemic sovereign demand, a telecom co-investment model that unlocked private capital, and faster spectrum licensing that halved rollout timelines in key markets.",
+          evidence: [
+            "Post-pandemic recovery plans in Bangladesh, Vietnam, and Kenya aligned national digital investment with IDA financing — amplifying scale and reducing procurement delays",
+            "IDA's public-private rollout framework across 8 countries backstopped last-mile infrastructure risk, enabling private operators to invest ahead of revenue recovery",
+            "Simplified spectrum licensing in Bangladesh and Vietnam cut average project-to-service timelines from 18 to 9 months (ISRs P161806, P165537)",
+          ],
+          citation: "IDA Digital Infrastructure Portfolio Review FY25; ISRs P161806 (Bangladesh), P165537 (Vietnam); Spectrum Policy Assessment FY25",
+          confidence: "MEDIUM",
+          confidenceNote: "Causal attribution draws on project ISRs from five countries; three additional markets pending final FY25 reporting.",
+        },
         achievedGeoRegions: ["Bangladesh", "Vietnam", "Kenya", "Rwanda", "Nigeria", "Indonesia", "Pakistan", "Tanzania"],
         achievedGeoData: { "Bangladesh": "38M new subscribers — broadband ahead 108% vs target", "Vietnam": "Fibre rollout doubled expected coverage", "Kenya": "Digital services 92M users — above target", "Rwanda": "Connectivity surging — government co-funding model", "Nigeria": "Broadband: largest SSA contributor to total" },
         expectedGeoRegions: ["Bangladesh", "Vietnam", "Kenya", "Rwanda", "Nigeria", "Indonesia", "Pakistan", "Tanzania", "Senegal", "Mozambique", "Laos", "Cambodia"],
@@ -1014,6 +1052,18 @@ export const momentumGroups: MomentumGroup[] = [
         achieved: "38.2 GW",
         expected: "21.8 GW",
         insight: "Renewable energy capacity enabled through IDA projects has reached 38.2 GW — 75% above the FY25 target of 21.8 GW. Ethiopia's flagship wind-solar hybrid programme delivered 12.6 GW, anchoring the continent's lead. IDA guarantee instruments and DFI co-financing have catalysed $3.2B in private capital across the pipeline, driving accelerated installation in Sub-Saharan Africa and South Asia.",
+        structuredInsight: {
+          type: "Performance Pattern",
+          finding: "IDA-enabled renewable energy capacity has reached 38.2 GW — 75% above the FY25 target of 21.8 GW, with Ethiopia's wind-solar hybrid programme as the single largest contributor.",
+          evidence: [
+            "Ethiopia contributed 12.6 GW — 33% of the global total — via a wind-solar hybrid programme (ICR P126094, FY25)",
+            "IDA guarantee instruments and DFI co-financing mobilised $3.2B in private capital across the pipeline",
+            "Sub-Saharan Africa and South Asia together account for 78% of new capacity enabled",
+          ],
+          citation: "Scorecard Results Indicator Data FY25; ICR P126094 (Ethiopia); IDA Guarantee Portfolio FY25",
+          confidence: "MEDIUM",
+          confidenceNote: "The $3.2B private capital mobilisation figure draws on preliminary DFI co-financing reports pending IDMS sign-off.",
+        },
         achievedGeoRegions: ["Ethiopia", "Kenya", "Morocco", "Bangladesh", "Nigeria", "Ghana", "Tanzania"],
         achievedGeoData: { "Ethiopia": "12.6 GW — largest SSA contributor, wind-solar hybrid", "Kenya": "Geothermal expansion: 4.2 GW above plan", "Nigeria": "Solar: 3.8 GW, ahead of grid target", "Ghana": "Renewables 2.1 GW — 85% of plan achieved", "Bangladesh": "Off-grid solar: 3.4M households" },
         expectedGeoRegions: ["Ethiopia", "Kenya", "Morocco", "Bangladesh", "Nigeria", "Ghana", "Tanzania", "Zambia", "Senegal", "Nepal"],
@@ -1026,6 +1076,18 @@ export const momentumGroups: MomentumGroup[] = [
         achieved: "92M",
         expected: "75M",
         insight: "Digital services uptake across IDA countries has reached 92M beneficiaries, outpacing the 75M target by 23%. Mobile government platforms in Bangladesh and Pakistan have driven the largest volume gains, while Kenya's fintech integration model shows strong spillovers into health and agriculture services. Gender-disaggregated data reveals a 34% gap in female uptake — a structural challenge flagged for the next IDA cycle.",
+        structuredInsight: {
+          type: "Tension Finding",
+          finding: "Digital services have reached 92 million people — 23% above target — but gender-disaggregated data shows women are being reached at 34 percentage points lower than men.",
+          evidence: [
+            "Bangladesh and Pakistan drove the largest volume gains (32M and 18M respectively) via mobile government platforms (ISRs P160102, P155192)",
+            "Kenya's fintech integration model shows measurable spillovers into health and agriculture services",
+            "Female uptake trails male uptake by 34 percentage points across IDA countries where data is available",
+          ],
+          citation: "Scorecard Results Indicator Data FY25; Gender Disaggregation Report FY25; ISRs P160102 (Bangladesh), P155192 (Pakistan)",
+          confidence: "MEDIUM",
+          confidenceNote: "Gender-disaggregated data is available for 14 of 22 contributing countries; the 34-point gap reflects available data only.",
+        },
         achievedGeoRegions: ["Bangladesh", "Pakistan", "Nigeria", "Kenya", "Vietnam", "Ghana", "Senegal"],
         achievedGeoData: { "Bangladesh": "32M users — mobile govt platform leads region", "Pakistan": "18M users — digital ID + services integration", "Kenya": "14M users — fintech model expanding", "Nigeria": "12M users — payment infrastructure driving uptake", "Ghana": "8.6M — government-to-person transfers unlocked" },
         expectedGeoRegions: ["Bangladesh", "Pakistan", "Nigeria", "Kenya", "Vietnam", "Ghana", "Senegal", "Uganda", "Rwanda", "Nepal"],
@@ -1150,7 +1212,7 @@ export const momentumGroups: MomentumGroup[] = [
 ];
 
 // ─── HNP / Health Services geo hint ──────────────────────────────────────────
-// Used to light up the globe and flat map when the hnp-measurement flow
+// Used to light up the globe and flat map when the methods-measurement flow
 // is active. Separate from momentumGroups so it doesn't render a source card
 // in the conversation view.
 const HNP_INDICATOR_NAME = "People reaching health, nutrition, and population services";
@@ -1309,6 +1371,53 @@ export const norwayGeoHint = {
   } as Record<string, GeoCountryDetail>,
   title: "Norway Attributed Results (IDA21)",
   color: "#818CF8",
+};
+
+export const benefGeoHint = {
+  achievedRegions: [
+    "Mali", "Niger", "Kenya", "Nigeria", "Ethiopia", "Pakistan", "Bangladesh",
+    "Senegal", "Burkina Faso", "Tanzania", "Uganda", "Zambia",
+  ],
+  expectedRegions: [
+    "Mali", "Niger", "Yemen", "Sudan", "Kenya", "Nigeria", "Ethiopia",
+    "Pakistan", "Bangladesh", "Senegal", "Burkina Faso", "Tanzania",
+    "Uganda", "Zambia", "Mozambique",
+  ],
+  achievedGeoData: {
+    "Mali":       "Safety Net: 748,462 achieved (FY25)",
+    "Niger":      "Safety Net: 320K achieved (FY25)",
+    "Kenya":      "Safety Net: 1.2M achieved (FY25)",
+    "Nigeria":    "Safety Net: 3.4M achieved (FY25)",
+    "Ethiopia":   "Safety Net: 4.2M achieved (FY25)",
+    "Pakistan":   "Safety Net: 6.3M achieved (FY25)",
+    "Bangladesh": "Safety Net: 8.1M achieved (FY25)",
+    "Tanzania":   "Safety Net: 0.9M achieved (FY25)",
+    "Uganda":     "Safety Net: 0.7M achieved (FY25)",
+  } as Record<string, string>,
+  expectedGeoData: {
+    "Mali":       "Target: 976,080 expected (FY25) — 77%",
+    "Niger":      "Target: 580K expected (FY25) — 55%",
+    "Yemen":      "Target: 650K expected (FY25) — 32%",
+    "Sudan":      "Target: 380K expected (FY25) — 25%",
+    "Kenya":      "Target: 1.5M expected (FY25) — 80%",
+    "Nigeria":    "Target: 4.1M expected (FY25) — 83%",
+    "Ethiopia":   "Target: 4.8M expected (FY25) — 88%",
+    "Pakistan":   "Target: 6.8M expected (FY25) — 93%",
+    "Bangladesh": "Target: 8.5M expected (FY25) — 95%",
+  } as Record<string, string>,
+  geoDetailData: {
+    "Mali":       { indicatorName: "Social Safety Nets", achieved: "748,462", expected: "976,080", projects: 3 },
+    "Niger":      { indicatorName: "Social Safety Nets", achieved: "320K",    expected: "580K",    projects: 2 },
+    "Yemen":      { indicatorName: "Social Safety Nets", achieved: "210K",    expected: "650K",    projects: 2 },
+    "Sudan":      { indicatorName: "Social Safety Nets", achieved: "95K",     expected: "380K",    projects: 2 },
+    "Kenya":      { indicatorName: "Social Safety Nets", achieved: "1.2M",    expected: "1.5M",    projects: 5 },
+    "Nigeria":    { indicatorName: "Social Safety Nets", achieved: "3.4M",    expected: "4.1M",    projects: 8 },
+    "Ethiopia":   { indicatorName: "Social Safety Nets", achieved: "4.2M",    expected: "4.8M",    projects: 6 },
+    "Pakistan":   { indicatorName: "Social Safety Nets", achieved: "6.3M",    expected: "6.8M",    projects: 7 },
+    "Bangladesh": { indicatorName: "Social Safety Nets", achieved: "8.1M",    expected: "8.5M",    projects: 9 },
+  } as Record<string, GeoCountryDetail>,
+  title: "Social Safety Net Beneficiaries",
+  color: "#5B5BD6",
 };
 
 // ─── Counter Intuitive Text Cards ─────────────────────────────────────────────

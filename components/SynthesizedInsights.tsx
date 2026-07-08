@@ -20,7 +20,7 @@ export default function SynthesizedInsights({ onOpenInsight }: SynthesizedInsigh
           style={{
             fontSize: 28,
             fontWeight: 300,
-            color: "rgba(255,255,255,0.96)",
+            color: "var(--section-title)",
             lineHeight: "34px",
             letterSpacing: "-1.2px",
             margin: 0,
@@ -44,37 +44,44 @@ export default function SynthesizedInsights({ onOpenInsight }: SynthesizedInsigh
             onClick={() => onOpenInsight(card)}
             className="group text-left flex flex-col"
             style={{
-              background: "rgba(10,22,38,0.72)",
-              border: "1px solid rgba(255,255,255,0.10)",
+              width: "100%",
+              minWidth: 0,
+              background: "var(--card-bg)",
+              border: "1px solid var(--card-border)",
               borderRadius: 16,
               padding: "20px 20px 18px",
-              boxShadow: "0 2px 16px rgba(0,0,0,0.32)",
+              boxShadow: "0 2px 16px rgba(0,0,0,0.18)",
               transition: "background 160ms, border-color 160ms, transform 160ms, box-shadow 160ms",
               cursor: "pointer",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(10,22,38,0.88)";
-              e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)";
+              e.currentTarget.style.background = "var(--card-bg-hover)";
+              e.currentTarget.style.borderColor = "var(--card-border-hover)";
               e.currentTarget.style.transform = "translateY(-2px)";
-              e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.44)";
+              e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.22)";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = "rgba(10,22,38,0.72)";
-              e.currentTarget.style.borderColor = "rgba(255,255,255,0.10)";
+              e.currentTarget.style.background = "var(--card-bg)";
+              e.currentTarget.style.borderColor = "var(--card-border)";
               e.currentTarget.style.transform = "translateY(0)";
-              e.currentTarget.style.boxShadow = "0 2px 16px rgba(0,0,0,0.32)";
+              e.currentTarget.style.boxShadow = "0 2px 16px rgba(0,0,0,0.18)";
             }}
           >
             {/* Outcome area tag */}
             {card.outcome_area && (
               <div style={{ marginBottom: 10 }}>
                 <span
+                  title={card.outcome_area}
                   style={{
                     fontSize: 10.5,
                     fontWeight: 600,
                     letterSpacing: "0.06em",
                     textTransform: "uppercase",
-                    color: "rgba(255,255,255,0.40)",
+                    color: "var(--tag-text)",
+                    display: "block",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
                   }}
                 >
                   {card.outcome_area}
@@ -84,10 +91,11 @@ export default function SynthesizedInsights({ onOpenInsight }: SynthesizedInsigh
 
             {/* Headline */}
             <h3
+              title={card.headline}
               style={{
                 fontSize: 18,
                 fontWeight: 700,
-                color: "rgba(255,255,255,0.97)",
+                color: "var(--text-1)",
                 lineHeight: 1.35,
                 margin: "0 0 12px",
                 display: "-webkit-box",
@@ -101,10 +109,11 @@ export default function SynthesizedInsights({ onOpenInsight }: SynthesizedInsigh
 
             {/* Body insight text */}
             <p
+              title={card.insight}
               style={{
                 margin: 0,
                 fontSize: 13,
-                color: "rgba(255,255,255,0.55)",
+                color: "var(--insight-body)",
                 lineHeight: 1.55,
                 display: "-webkit-box",
                 WebkitLineClamp: 3,
@@ -134,7 +143,7 @@ export default function SynthesizedInsights({ onOpenInsight }: SynthesizedInsigh
                     alignItems: "center",
                     gap: 6,
                     fontSize: 12,
-                    color: "rgba(255,255,255,0.35)",
+                    color: "var(--insight-views)",
                   }}
                 >
                   <IconUsersGroup size={14} style={{ opacity: 0.7, flexShrink: 0 }} />

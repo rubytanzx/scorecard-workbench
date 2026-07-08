@@ -227,7 +227,7 @@ export default function AnalyticsCards() {
           style={{
             fontSize: 28,
             fontWeight: 300,
-            color: "rgba(255,255,255,0.96)",
+            color: "var(--section-title)",
             lineHeight: "34px",
             letterSpacing: "-1.2px",
             margin: 0,
@@ -235,7 +235,7 @@ export default function AnalyticsCards() {
         >
           Explore Analyses
         </h2>
-        <span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.45)" }}>
+        <span style={{ fontSize: 12.5, color: "var(--section-meta)" }}>
           Pre-built analysis · FY25
         </span>
       </div>
@@ -259,14 +259,14 @@ function AnalyticsCard({ card }: { card: CardData }) {
   return (
     <div
       style={{
-        background: "rgba(10,22,38,0.72)",
-        border: "1px solid rgba(255,255,255,0.10)",
+        background: "var(--card-bg)",
+        border: "1px solid var(--card-border)",
         borderRadius: 16,
         padding: "18px 18px 16px",
         display: "flex",
         flexDirection: "column",
         gap: 14,
-        boxShadow: "0 2px 16px rgba(0,0,0,0.32)",
+        boxShadow: "0 2px 16px rgba(0,0,0,0.18)",
       }}
     >
       {/* Headline */}
@@ -275,7 +275,7 @@ function AnalyticsCard({ card }: { card: CardData }) {
           margin: 0,
           fontSize: 15,
           fontWeight: 700,
-          color: "rgba(255,255,255,0.95)",
+          color: "var(--text-1)",
           lineHeight: 1.4,
           display: "-webkit-box",
           WebkitLineClamp: 4,
@@ -294,7 +294,7 @@ function AnalyticsCard({ card }: { card: CardData }) {
         style={{
           margin: 0,
           fontSize: 12.5,
-          color: "rgba(255,255,255,0.52)",
+          color: "var(--insight-body)",
           lineHeight: 1.6,
           display: "-webkit-box",
           WebkitLineClamp: 4,
@@ -309,7 +309,7 @@ function AnalyticsCard({ card }: { card: CardData }) {
       <div
         style={{
           fontSize: 10,
-          color: "rgba(255,255,255,0.28)",
+          color: "var(--text-4)",
           letterSpacing: "0.02em",
           marginTop: "auto",
         }}

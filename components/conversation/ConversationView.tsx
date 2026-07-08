@@ -39,6 +39,7 @@ import {
   Cell,
 } from "recharts";
 import { useViewMode } from "@/contexts/ViewModeContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import type { NarrativePhase } from "../../app/page";
 import type { MomentumGroup } from "../../lib/mockData";
 import NarrativeSkeletonChoice from "./NarrativeSkeletonChoice";
@@ -178,6 +179,12 @@ interface Props {
   preloadedFollowUps?: string[];
   /** Called when the user clicks "Convert into a narrative" after an AI response. */
   onConvertToNarrative?: () => void;
+  /** Additional follow-up turns appended to the sourceCard conversation without
+   *  starting a new session. Each string is a user-submitted follow-up prompt. */
+  followUpTurns?: string[];
+  /** Fires when the beneficiary-geo flow advances to a sub-national map step.
+   *  The parent renders the map in the right panel overlay instead of inline. */
+  onMaliStep?: (step: "cercle" | "poverty") => void;
 }
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
@@ -191,14 +198,27 @@ export type FlowId =
   | "africa-poverty"
   | "health-gap"
   | "electricity-fcs"
-  | "fy24-fy25-delta"
-  | "hnp-measurement"
+  | "analytics-engine"
+  | "methods-measurement"
   | "methods-taxonomy"
   | "methods-compilation"
-  | "norway-donor";
+  | "external-narrative"
+  | "ssn-yoy"
+  | "beneficiary-geo";
 
 export function detectFlow(prompt: string): FlowId {
   const t = prompt.toLowerCase();
+  // Beneficiary geography — country / sub-national distribution of beneficiaries.
+  if (
+    t.includes("where are the beneficiar") ||
+    t.includes("beneficiary geography") ||
+    t.includes("geographic distribution") ||
+    (t.includes("beneficiar") && (t.includes("country") || t.includes("region") || t.includes("where"))) ||
+    t.includes("how many people benefitted") ||
+    t.includes("benefitted from social safety") ||
+    t.includes("beneficiar") ||
+    t.includes("mali")
+  ) return "beneficiary-geo";
   // Methods Advisor — structural taxonomy question.
   if (
     t.includes("relationship between") &&
@@ -222,14 +242,36 @@ export function detectFlow(prompt: string): FlowId {
       t.includes("defined") ||
       t.includes("methodology") ||
       t.includes("how is people reached"))
-  ) return "hnp-measurement";
-  // Year-over-year comparison across the FY24 → FY25 cycle.
+  ) return "methods-measurement";
+  // SSN year-over-year — social safety net FY24 vs FY25 cohort breakdown.
+  if (
+    (t.includes("social safety net") && (t.includes("explains") || t.includes("difference"))) ||
+    (t.includes("ssn") && (t.includes("explains") || t.includes("fy24") || t.includes("fy25"))) ||
+    (t.includes("safety net indicator") && t.includes("results"))
+  ) return "ssn-yoy";
+  // Analytics Engine — year-over-year, regional performance, portfolio decomposition.
   if (
     (t.includes("fy24") && t.includes("fy25")) ||
     t.includes("difference in results between fy24") ||
-    (t.includes("year-over-year") && t.includes("scorecard"))
-  ) return "fy24-fy25-delta";
-  if (t.includes("norway") && t.includes("proportion")) return "norway-donor";
+    (t.includes("year-over-year") && t.includes("scorecard")) ||
+    (t.includes("performance of") && t.includes("compared to other regions")) ||
+    t.includes("most vulnerable populations") ||
+    t.includes("financing window") ||
+    t.includes("did not contribute to a scorecard") ||
+    (t.includes("separately for ida") || (t.includes("ida") && t.includes("ibrd") && t.includes("separately")))
+  ) return "analytics-engine";
+  // External narrative — donor attribution and donor-specific policy prompts.
+  if (
+    t.includes("ida21 policy commitments") ||
+    t.includes("inform the design of the cpf") ||
+    t.includes("inform the design of a project") ||
+    t.includes("young people, crisis-readiness") ||
+    t.includes("wbg gender strategy") ||
+    (
+      (t.includes("norway") || t.includes("japan") || t.includes("donor")) &&
+      (t.includes("proportion") || t.includes("priorities") || t.includes("address and report"))
+    )
+  ) return "external-narrative";
   if (
     t.includes("electricity") ||
     t.includes("energy access") ||
@@ -443,7 +485,7 @@ const FLOW_CONTENT: Record<FlowId, FlowContent> = {
       "WBG energy strategy — FY25 progress",
     ],
   },
-  "fy24-fy25-delta": {
+  "analytics-engine": {
     title: "What changed between FY24 and FY25",
     defaultPrompt: "What explains the difference in results between FY24 and FY25?",
     leadAnswer:
@@ -467,7 +509,25 @@ const FLOW_CONTENT: Record<FlowId, FlowContent> = {
       "Climate Resilience methodology note — anticipatory-action accounting change",
     ],
   },
-  "hnp-measurement": {
+  "ssn-yoy": {
+    title: "Social safety nets: FY24 vs FY25 explained",
+    defaultPrompt: "For the social safety net indicator, what explains the difference in results in FY25 compared to FY24?",
+    leadAnswer: "For the Beneficiaries of social safety net programs indicator (CSC_RES_SOC_SAF_PROG), the three project cohorts — FY24 only, both FY24 and FY25, and FY25 only — show meaningfully different beneficiary trajectories across fiscal years.",
+    bodyText: "",
+    filterCaption: "",
+    chartTitle: "",
+    signalsHeader: "",
+    continueExploring: [
+      "Which countries drove the Pakistan social safety net surge?",
+      "How does the safety net cohort breakdown compare across regions?",
+      "What explains the FY24-only project exits?",
+    ],
+    sources: [
+      "Scorecard Indicator Data: Beneficiaries of social safety net programs — All Countries (FY24 & FY25)",
+      "Scorecard Project Data: CSC_RES_SOC_SAF_PROG project-level contributions (FY24 & FY25)",
+    ],
+  },
+  "methods-measurement": {
     title: "How HNP Services reach is measured",
     defaultPrompt: "How is People Reached with HNP Services measured?",
     leadAnswer:
@@ -560,7 +620,29 @@ const FLOW_CONTENT: Record<FlowId, FlowContent> = {
       "IDMS Metadata — CRI tagging structure and ISR filing fields",
     ],
   },
-  "norway-donor": {
+  "beneficiary-geo": {
+    title: "Social Safety Net beneficiaries in Mali — FY25",
+    defaultPrompt: "Can you tell me how many people benefitted from social safety net programs in Mali in FY25?",
+    leadAnswer:
+      "In FY25, 748,462 people in Mali benefitted from Social Safety Net programmes — against a target of 976,080. This represents 77% of the expected reach for the year.",
+    bodyText:
+      "IDA's 244M Social Safety Net beneficiaries in FY25 are not spread equally across the portfolio. Larger middle-income IDA borrowers with well-established delivery systems (Bangladesh, Pakistan, Ethiopia) are close to or above plan. Smaller and fragile states — Mali (77%), Niger (55%), Yemen (32%), Sudan (25%) — face structural barriers: weak national registry systems, displacement limiting beneficiary identification, and supply-chain constraints on cash transfers. The global headline conceals a two-speed portfolio.",
+    filterCaption: "FY25 country data · Social Safety Nets (CSC_RES_SOC_SAF_PROG) · Filter by status:",
+    chartTitle: "Social Safety Net beneficiaries — country distribution",
+    signalsHeader: "Coverage signals",
+    continueExploring: [
+      "Show me where in Mali the beneficiaries are located",
+      "What's driving the shortfall in Mali and Niger?",
+      "Which FCS countries have the biggest Safety Net gaps?",
+    ],
+    sources: [
+      "Social Safety Nets results · FY2025 country-level Achieved_Results",
+      "Scorecard Metadata — country eligibility and Double_Counting_Flag",
+      "Social Protection methodology note — beneficiary counting and deduplication",
+      "FCS portfolio data — fragile state safety net delivery challenges",
+    ],
+  },
+  "external-narrative": {
     title: "Norway's share of IDA results",
     defaultPrompt: "What proportion of Scorecard results in IDA countries is being achieved with Norway's money?",
     leadAnswer:
@@ -571,7 +653,7 @@ const FLOW_CONTENT: Record<FlowId, FlowContent> = {
     chartTitle: "Norway's attributed share — FY25 IDA indicators",
     signalsHeader: "Donor attribution signals",
     continueExploring: [
-      "How does Norway's share compare to other Nordic donors?",
+      "Create a narrative with these results",
       "Which IDA financing windows does Norway's funding flow through?",
       "How does Norway's food security priority align with Scorecard indicators?",
       "Show Norway's attributed results in FCS countries specifically",
@@ -1082,8 +1164,620 @@ function YoYDeltaChart({ title, disabled = false }: { title: string; disabled?: 
   );
 }
 
+// ─── Beneficiary Geography flow ──────────────────────────────────────────────
+
+function BeneficiaryIndicatorCard() {
+  const SSN_ICON = "/outcome%20areas/protection%20for%20the%20pooresr.svg";
+  return (
+    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+      <div className="px-5 pt-5 pb-4 border-b border-gray-200">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+          Social Safety Net
+        </p>
+        <h2 className="text-[18px] font-semibold text-gray-900">People on social safety net programmes</h2>
+        <p className="text-[12.5px] text-gray-500 mt-0.5">Scorecard beneficiaries · Mali (national)</p>
+      </div>
+      <div className="flex items-center px-5 py-2 border-b border-gray-100">
+        <span className="flex-1 text-[10.5px] font-semibold uppercase tracking-wider text-gray-400">Results</span>
+        <span className="w-[110px] text-right text-[10.5px] font-semibold uppercase tracking-wider text-gray-400">Achieved</span>
+        <span className="w-[110px] text-right text-[10.5px] font-semibold uppercase tracking-wider text-gray-400">Expected</span>
+      </div>
+      <div className="flex items-center px-5 py-3.5">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <span aria-hidden="true" style={{ display: "block", width: 22, height: 22, flexShrink: 0, opacity: 0.7, backgroundImage: `url(${SSN_ICON})`, backgroundSize: "contain", backgroundRepeat: "no-repeat", backgroundPosition: "center" }} />
+          <span className="text-[13px] text-gray-800 leading-snug">People on social safety net programmes</span>
+        </div>
+        <span className="w-[110px] text-right text-[13px] font-semibold text-gray-900">748,462</span>
+        <span className="w-[110px] text-right text-[13px] text-gray-500">976,080</span>
+      </div>
+    </div>
+  );
+}
+const THOUGHT_STEPS_BENEF_WHERE: ThoughtStep[] = [
+  { type: "search",  text: "Disaggregating Social Safety Net data by cercle · Mali project records", detail: "P161380, P173975, P173178 · 3 active IDA projects" },
+  { type: "filter",  text: "Mapping beneficiary records to administrative boundaries (cercle level)", detail: "748,462 total · 312 project sites geocoded" },
+  { type: "analyze", text: "Identifying top cercles by coverage and project density", detail: "Ségou, Kolokani, Youwarou account for 61% of national reach" },
+];
+
+const THOUGHT_STEPS_BENEF_POVERTY: ThoughtStep[] = [
+  { type: "search",  text: "Loading Mali poverty headcount data · consumption-based estimates FY24", detail: "WBG Mali Poverty Assessment 2024 · 82 survey clusters" },
+  { type: "compute", text: "Overlaying social safety net beneficiary locations with poverty headcount by cercle", detail: "Pearson r = 0.52 — moderate positive correlation, notable outliers" },
+  { type: "analyze", text: "Identifying coverage gaps: high-poverty cercles with low social safety net reach", detail: "Kidal, Gao, northeastern Mopti — 11 cercles identified as priority gaps" },
+];
+
+type BenefGeoStep = "text" | "where" | "poverty";
+
+function BenefGeoWhereTurn({ disabled, showPovertyChip, onPovertyChipClick, onMaliStep }: {
+  disabled: boolean;
+  showPovertyChip: boolean;
+  onPovertyChipClick: () => void;
+  onMaliStep?: (step: "cercle" | "poverty") => void;
+}) {
+  const [mounted, setMounted] = useState(false);
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setMounted(true), 80);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {/* User bubble */}
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10 }}>
+        <div style={{ background: "#F1F5F9", borderRadius: "18px 18px 4px 18px", padding: "10px 16px", fontSize: 13.5, color: "#1E293B", maxWidth: "85%" }}>
+          Yes, show me where in Mali the beneficiaries are located
+        </div>
+        <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#0288D1", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#fff" }}>
+          JD
+        </div>
+      </div>
+
+      {mounted && (
+        <ThoughtProcess
+          flow="beneficiary-geo"
+          customSteps={THOUGHT_STEPS_BENEF_WHERE}
+          onComplete={() => { setDone(true); onMaliStep?.("cercle"); }}
+        />
+      )}
+
+      {done && (
+        <div className="narrative-content-enter" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <p style={{ margin: 0, fontSize: 13.5, color: "#374151", lineHeight: 1.65 }}>
+            The map shows that <strong>Ségou</strong>, <strong>Kolokani</strong> and <strong>Youwarou</strong> are the cercles with the most Social Safety Net beneficiaries. Youwarou is particularly notable — <strong>10 different Scorecard indicators</strong> are active in this cercle, making it one of the most integrated WBG intervention areas in Mali. Click on any cercle to see more details.
+          </p>
+
+          {showPovertyChip && !disabled && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <IconSparkles size={13} className="text-violet-400 shrink-0" aria-hidden="true" />
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Follow Up</span>
+              </div>
+              <div className="flex flex-col border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={onPovertyChipClick}
+                  className="flex items-center justify-between py-3.5 text-left border-b border-gray-200 text-[13.5px] text-gray-700 hover:text-gray-900 group transition-colors"
+                >
+                  <span>How does the geographic location of the beneficiaries compare with the location of the poor?</span>
+                  <IconPlus size={15} className="text-gray-400 group-hover:text-gray-600 shrink-0 transition-colors ml-3" />
+                </button>
+                <button
+                  type="button"
+                  className="flex items-center justify-between py-3.5 text-left border-b border-gray-200 text-[13.5px] text-gray-700 hover:text-gray-900 group transition-colors"
+                >
+                  <span>Which cercles have the highest unmet need relative to project reach?</span>
+                  <IconPlus size={15} className="text-gray-400 group-hover:text-gray-600 shrink-0 transition-colors ml-3" />
+                </button>
+                <button
+                  type="button"
+                  className="flex items-center justify-between py-3.5 text-left border-b border-gray-200 text-[13.5px] text-gray-700 hover:text-gray-900 group transition-colors"
+                >
+                  <span>What would it take to expand coverage to the northern cercles by FY27?</span>
+                  <IconPlus size={15} className="text-gray-400 group-hover:text-gray-600 shrink-0 transition-colors ml-3" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          <UsedSources sources={[
+            "Mali project geocoding · ISRs P161380, P173975, P173178",
+            "Scorecard cercle-level disaggregation (FY25 data request)",
+          ]} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BenefGeoPovertyTurn({ disabled: _disabled, onMaliStep }: {
+  disabled: boolean;
+  onMaliStep?: (step: "cercle" | "poverty") => void;
+}) {
+  const [mounted, setMounted] = useState(false);
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setMounted(true), 80);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {/* User bubble */}
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10 }}>
+        <div style={{ background: "#F1F5F9", borderRadius: "18px 18px 4px 18px", padding: "10px 16px", fontSize: 13.5, color: "#1E293B", maxWidth: "85%" }}>
+          How does the geographic location of the beneficiaries compare with the location of the poor?
+        </div>
+        <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#0288D1", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#fff" }}>
+          JD
+        </div>
+      </div>
+
+      {mounted && (
+        <ThoughtProcess
+          flow="beneficiary-geo"
+          customSteps={THOUGHT_STEPS_BENEF_POVERTY}
+          onComplete={() => { setDone(true); onMaliStep?.("poverty"); }}
+        />
+      )}
+
+      {done && (
+        <div className="narrative-content-enter" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <p style={{ margin: 0, fontSize: 13.5, color: "#374151", lineHeight: 1.65 }}>
+            The map shows that current WBG projects reach the most vulnerable in some areas — but not all. Some of the areas with the highest levels of poverty, particularly in the north and northeast, appear to have fewer beneficiaries. Click on any cercle to explore the coverage gaps.
+          </p>
+
+          <UsedSources sources={[
+            "WBG Mali Poverty Assessment FY24 · consumption-based headcount estimates",
+            "Social safety net project beneficiary geo data · FY25 ISRs",
+            "IDA FCS portfolio data — delivery barriers in northern Mali",
+          ]} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BeneficiaryGeoFlow({ disabled = false, onMaliStep }: {
+  disabled?: boolean;
+  onMaliStep?: (step: "cercle" | "poverty") => void;
+}) {
+  const [steps, setSteps] = useState<BenefGeoStep[]>(["text"]);
+  const addStep = (s: BenefGeoStep) => setSteps(prev => prev.includes(s) ? prev : [...prev, s]);
+
+  const showWhere   = steps.includes("where");
+  const showPoverty = steps.includes("poverty");
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* ── Step 1: text answer ── */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <BeneficiaryIndicatorCard />
+        <p style={{ margin: 0, fontSize: 13.5, color: "#374151", lineHeight: 1.65 }}>
+          In FY25, <strong>748,462</strong> people in Mali benefitted from Social Safety Net programmes — against a target of <strong>976,080</strong>. This represents 77% of the expected reach for the year.
+        </p>
+        <p style={{ margin: 0, fontSize: 13.5, color: "#374151", lineHeight: 1.65 }}>
+          Would you like to see a regional breakdown or an interactive map of where beneficiaries are concentrated?
+        </p>
+        <UsedSources sources={[
+          "Social Safety Nets results · FY2025 country-level Achieved_Results (CSC_RES_SOC_SAF_PROG)",
+          "Mali project ISRs: P161380, P173975, P173178",
+          "Scorecard Metadata — country eligibility and Double_Counting_Flag",
+        ]} />
+      </div>
+
+      {/* AI proactive question — shown until "where" step is added */}
+      {!showWhere && !disabled && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <p style={{ margin: 0, fontSize: 13.5, color: "#374151", lineHeight: 1.65 }}>
+            Would you like to see a regional breakdown or an interactive map of where beneficiaries are concentrated?
+          </p>
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <IconSparkles size={13} className="text-violet-400 shrink-0" aria-hidden="true" />
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Follow Up</span>
+            </div>
+            <div className="flex flex-col border-t border-gray-200">
+              <button
+                type="button"
+                onClick={() => addStep("where")}
+                className="flex items-center justify-between py-3.5 text-left border-b border-gray-200 text-[13.5px] text-gray-700 hover:text-gray-900 group transition-colors"
+              >
+                <span>Yes, show me where in Mali the beneficiaries are located</span>
+                <IconPlus size={15} className="text-gray-400 group-hover:text-gray-600 shrink-0 transition-colors" />
+              </button>
+              <button
+                type="button"
+                className="flex items-center justify-between py-3.5 text-left border-b border-gray-200 text-[13.5px] text-gray-700 hover:text-gray-900 group transition-colors"
+              >
+                <span>What are the main barriers to reaching the remaining 23% of the target?</span>
+                <IconPlus size={15} className="text-gray-400 group-hover:text-gray-600 shrink-0 transition-colors" />
+              </button>
+              <button
+                type="button"
+                className="flex items-center justify-between py-3.5 text-left border-b border-gray-200 text-[13.5px] text-gray-700 hover:text-gray-900 group transition-colors"
+              >
+                <span>How does Mali compare to other IDA borrowers on social safety net coverage?</span>
+                <IconPlus size={15} className="text-gray-400 group-hover:text-gray-600 shrink-0 transition-colors" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Step 2: cercle map (shown in right panel via onMaliStep) ── */}
+      {showWhere && (
+        <BenefGeoWhereTurn
+          disabled={disabled}
+          showPovertyChip={!showPoverty}
+          onPovertyChipClick={() => addStep("poverty")}
+          onMaliStep={onMaliStep}
+        />
+      )}
+
+      {/* ── Step 3: poverty comparison (shown in right panel via onMaliStep) ── */}
+      {showPoverty && <BenefGeoPovertyTurn disabled={disabled} onMaliStep={onMaliStep} />}
+    </div>
+  );
+}
+
+// ─── SSN cohort breakdown data ───────────────────────────────────────────────
+
+const SSN_COHORT_ROWS = [
+  { cohort: "FY24 only",          projects: 121, fy24: "117.0", fy25: "—",     change: "—"     },
+  { cohort: "Both FY24 & FY25",   projects:  69, fy24: "104.9", fy25: "193.9", change: "+89.0" },
+  { cohort: "FY25 only",          projects:  21, fy24: "—",     fy25: "50.2",  change: "—"     },
+  { cohort: "All cohorts combined",projects: 211, fy24: "221.8", fy25: "244.1", change: "—",    bold: true },
+] as const;
+
+const SSN_BAR_DATA = [
+  { label: "Exited after FY24",        fy: "FY24", value: 117.0, color: "#E07B54", projects: "121 projects" },
+  { label: "Continuing projects (FY24)",fy: "FY24", value: 104.9, color: "#4E75B5", projects: "69 projects"  },
+  { label: "Continuing projects (FY25)",fy: "FY25", value: 193.9, color: "#2AA8A0", projects: "69 projects"  },
+  { label: "New in FY25",               fy: "FY25", value:  50.2, color: "#D4C04A", projects: "21 projects"  },
+];
+
+const SSN_DRIVERS = [
+  { name: "PK Crisis-Resilient Social Protection", code: "P174484", delta: 56.7, region: "MENAAP" },
+  { name: "Bolsa Familia 4",                        code: "P179365", delta:  9.3, region: "LCR"    },
+  { name: "Shock Responsive Social Protection",     code: "P179095", delta:  9.2, region: "AFE"    },
+  { name: "RY: Social Protection & COVID19 Res...", code: "P173582", delta:  7.7, region: "MENAAP" },
+  { name: "NASSP-SU",                               code: "P176935", delta:  1.9, region: "AFE"    },
+  { name: "SSRLP",                                  code: "P169198", delta:  1.7, region: "MENAAP" },
+  { name: "MG-Social Safety Net Project",           code: "P149323", delta:  1.6, region: "AFE"    },
+  { name: "Angola Social Protection",               code: "P169779", delta:  1.3, region: "AFE"    },
+  { name: "Productive Social Safety Nets System",   code: "P175594", delta:  0.8, region: "AFE"    },
+  { name: "Community Resilience and Livelihoods",   code: "P178760", delta:  0.7, region: "MENAAP" },
+];
+
+const REGION_COLORS: Record<string, string> = {
+  AFE: "#E07B54", AFW: "#D4A843", EAP: "#4CAF7D", ECA: "#888888",
+  LCR: "#4E75B5", MENAAP: "#5BAFD6", SAR: "#C9639A",
+};
+
+// Scatter: shared projects (P174484 excluded as outlier)
+const SSN_SCATTER: { code: string; fy24: number; fy25: number; region: string; r: number; label?: boolean }[] = [
+  // Labeled outliers — corrected regions to match PDF
+  { code: "P176935", fy24: 11.5, fy25: 17.0, region: "AFW",    r: 12, label: true },
+  { code: "P160665", fy24: 14.0, fy25: 15.8, region: "EAP",    r: 13, label: true },
+  { code: "P179095", fy24:  0.6, fy25: 10.5, region: "AFE",    r: 11, label: true },
+  { code: "P179365", fy24:  0.5, fy25:  9.8, region: "LCR",    r: 11, label: true },
+  { code: "P173582", fy24:  0.7, fy25:  9.2, region: "MENAAP", r: 11, label: true },
+  { code: "P169165", fy24:  4.6, fy25:  4.8, region: "ECA",    r: 11, label: true },
+  // Background cluster — origin to 2M
+  { code: "", fy24: 0.10, fy25: 0.15, region: "AFE",    r: 8 },
+  { code: "", fy24: 0.20, fy25: 0.30, region: "AFW",    r: 8 },
+  { code: "", fy24: 0.35, fy25: 0.45, region: "LCR",    r: 8 },
+  { code: "", fy24: 0.50, fy25: 0.55, region: "SAR",    r: 8 },
+  { code: "", fy24: 0.65, fy25: 0.80, region: "EAP",    r: 8 },
+  { code: "", fy24: 0.85, fy25: 0.80, region: "AFW",    r: 8 },
+  { code: "", fy24: 1.10, fy25: 1.30, region: "AFE",    r: 9 },
+  { code: "", fy24: 1.30, fy25: 1.10, region: "ECA",    r: 8 },
+  { code: "", fy24: 1.55, fy25: 1.75, region: "AFW",    r: 9 },
+  { code: "", fy24: 1.80, fy25: 2.00, region: "LCR",    r: 9 },
+  // Mid range 2–6M along diagonal
+  { code: "", fy24: 2.10, fy25: 2.20, region: "AFE",    r: 9 },
+  { code: "", fy24: 2.50, fy25: 2.70, region: "AFW",    r: 9 },
+  { code: "", fy24: 2.80, fy25: 2.50, region: "ECA",    r: 9 },
+  { code: "", fy24: 3.20, fy25: 3.60, region: "AFE",    r: 10 },
+  { code: "", fy24: 3.80, fy25: 4.00, region: "MENAAP", r: 9 },
+  { code: "", fy24: 4.20, fy25: 4.80, region: "AFW",    r: 10 },
+  { code: "", fy24: 5.00, fy25: 6.60, region: "AFE",    r: 10 },
+  { code: "", fy24: 6.50, fy25: 7.00, region: "AFW",    r: 9 },
+  { code: "", fy24: 8.00, fy25: 7.50, region: "LCR",    r: 10 },
+];
+
+function SsnCohortResponse({ disabled, leadDone }: { disabled: boolean; leadDone: boolean }) {
+  // vertical bar chart constants
+  const CHART_X1 = 45, CHART_X2 = 495, CHART_Y_TOP = 48, CHART_Y_BOT = 222;
+  const chartW = CHART_X2 - CHART_X1; // 450
+  const chartH = CHART_Y_BOT - CHART_Y_TOP; // 174
+  const barW = 72;
+  const barGap = (chartW - 4 * barW) / 5; // ~32.4
+  const barCenters = SSN_BAR_DATA.map((_, i) => CHART_X1 + barGap + i * (barW + barGap) + barW / 2);
+  const yScale = chartH / 200; // px per M
+
+  // scatter chart constants
+  const SX1 = 55, SX2 = 488, SY_TOP = 50, SY_BOT = 275;
+  const sW = SX2 - SX1; // 433
+  const sH = SY_BOT - SY_TOP; // 225
+  const xMax = 16, yMax = 20;
+  const sx = (v: number) => SX1 + (v / xMax) * sW;
+  const sy = (v: number) => SY_BOT - (v / yMax) * sH;
+
+  type ScatterPt = typeof SSN_SCATTER[number];
+  const [scatterTip, setScatterTip] = useState<{ pt: ScatterPt; px: number; py: number } | null>(null);
+
+  return (
+    <div className="flex flex-col gap-6" style={{ opacity: leadDone ? 1 : 0, transition: "opacity 0.7s" }}>
+
+      {/* Headline Indicator Context */}
+      <div className="flex flex-col gap-2">
+        <p className="text-[13px] font-semibold text-gray-700">Headline Indicator Context</p>
+        <p className="text-[12.5px] text-gray-600 leading-relaxed">Before examining cohorts, the published headline totals provide the reference frame:</p>
+        <ul className="flex flex-col gap-1.5 pl-1">
+          <li className="flex items-start gap-2 text-[13px] text-gray-700">
+            <span className="mt-1 w-1.5 h-1.5 rounded-full bg-gray-400 shrink-0" />
+            <span><strong className="font-semibold">FY24:</strong> 221.8 million achieved against a target of 263.0 million <em className="text-gray-500">(behind target)</em></span>
+          </li>
+          <li className="flex items-start gap-2 text-[13px] text-gray-700">
+            <span className="mt-1 w-1.5 h-1.5 rounded-full bg-gray-400 shrink-0" />
+            <span><strong className="font-semibold">FY25:</strong> 244.1 million achieved against a target of 251.4 million <em className="text-gray-500">(behind target, but narrowing)</em></span>
+          </li>
+        </ul>
+      </div>
+
+      {/* Project Cohort Breakdown */}
+      <div className="flex flex-col gap-3">
+        <p className="text-[13px] font-semibold text-gray-700">Project Cohort Breakdown</p>
+        <p className="text-[12px] font-semibold text-gray-600 text-center">Social Safety Net — Project Cohort Beneficiary Comparison (FY24 vs FY25)</p>
+        <div className="rounded-xl border border-gray-200 overflow-hidden">
+          {/* Header */}
+          <div className="grid grid-cols-[1fr_80px_110px_110px_90px] bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+            {["Project Cohort", "# Projects", "FY24 Achieved (M)", "FY25 Achieved (M)", "Change (M)"].map((h, i) => (
+              <span key={i} className={`text-[11px] font-bold text-gray-600 ${i > 0 ? "text-right" : ""}`}>{h}</span>
+            ))}
+          </div>
+          {/* Rows */}
+          {SSN_COHORT_ROWS.map((row) => (
+            <div
+              key={row.cohort}
+              className={`grid grid-cols-[1fr_80px_110px_110px_90px] px-4 py-3 border-b border-gray-100 last:border-b-0 ${("bold" in row && row.bold) ? "bg-gray-50" : "bg-white"}`}
+            >
+              <span className={`text-[12.5px] ${("bold" in row && row.bold) ? "font-semibold text-gray-800" : "text-gray-700"}`}>{row.cohort}</span>
+              <span className={`text-[12.5px] text-right ${("bold" in row && row.bold) ? "font-semibold text-gray-800" : "text-gray-600"}`}>{row.projects}</span>
+              <span className={`text-[12.5px] text-right tabular-nums ${("bold" in row && row.bold) ? "font-semibold text-gray-800" : "text-gray-600"}`}>{row.fy24}</span>
+              <span className={`text-[12.5px] text-right tabular-nums ${("bold" in row && row.bold) ? "font-semibold text-gray-800" : "text-gray-600"}`}>{row.fy25}</span>
+              <span className={`text-[12.5px] text-right tabular-nums font-semibold ${row.change.startsWith("+") ? "text-emerald-700" : "text-gray-600"}`}>{row.change}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Visual Comparison — vertical grouped bar chart */}
+      <div className="flex flex-col gap-2">
+        <p className="text-[12px] font-semibold text-gray-600 text-center">Achieved Beneficiaries by Project Cohort, FY24 and FY25</p>
+        <svg viewBox="0 0 540 300" style={{ width: "100%", display: "block" }}>
+          {/* Y-axis gridlines + labels */}
+          {[0, 50, 100, 150, 200].map(v => {
+            const y = CHART_Y_BOT - v * yScale;
+            return (
+              <g key={v}>
+                <line x1={CHART_X1} y1={y} x2={CHART_X2} y2={y} stroke="#E5E7EB" strokeWidth={0.8} />
+                <text x={CHART_X1 - 6} y={y + 4} textAnchor="end" fontSize={9} fill="#9CA3AF">{v}M</text>
+              </g>
+            );
+          })}
+          {/* Bars */}
+          {SSN_BAR_DATA.map((bar, i) => {
+            const cx = barCenters[i];
+            const bh = bar.value * yScale;
+            const by = CHART_Y_BOT - bh;
+            return (
+              <g key={bar.label}>
+                <rect x={cx - barW / 2} y={by} width={barW} height={bh} fill={bar.color} rx={2} />
+                {/* project count inside bar */}
+                {bh > 24 && (
+                  <text x={cx} y={CHART_Y_BOT - 8} textAnchor="middle" fontSize={9} fontWeight="700" fill="white">{bar.projects}</text>
+                )}
+                {/* value above bar */}
+                <text x={cx} y={by - 6} textAnchor="middle" fontSize={11} fontWeight="700" fill="#374151">{bar.value}M</text>
+              </g>
+            );
+          })}
+          {/* +89M arrow annotation spanning bar 2 → bar 3 */}
+          {(() => {
+            const x1 = barCenters[1];
+            const x2 = barCenters[2];
+            const arrowY = CHART_Y_BOT - 193.9 * yScale - 20;
+            return (
+              <g>
+                <line x1={x1} y1={arrowY} x2={x2 - 6} y2={arrowY} stroke="#10B981" strokeWidth={1.5} />
+                <path d={`M${x2 - 8},${arrowY - 4} L${x2},${arrowY} L${x2 - 8},${arrowY + 4}`} fill="none" stroke="#10B981" strokeWidth={1.5} />
+                <text x={(x1 + x2) / 2} y={arrowY - 6} textAnchor="middle" fontSize={10} fontWeight="700" fill="#10B981">+89M</text>
+              </g>
+            );
+          })()}
+          {/* X-axis labels */}
+          {SSN_BAR_DATA.map((bar, i) => {
+            const cx = barCenters[i];
+            const words = bar.label.split(" ");
+            const mid = Math.ceil(words.length / 2);
+            const line1 = words.slice(0, mid).join(" ");
+            const line2 = words.slice(mid).join(" ");
+            return (
+              <g key={bar.label}>
+                <text x={cx} y={CHART_Y_BOT + 14} textAnchor="middle" fontSize={9.5} fill="#6B7280">{line1}</text>
+                <text x={cx} y={CHART_Y_BOT + 25} textAnchor="middle" fontSize={9.5} fill="#6B7280">{line2}</text>
+              </g>
+            );
+          })}
+          {/* Y-axis label */}
+          <text transform={`rotate(-90)`} x={-(CHART_Y_TOP + chartH / 2)} y={11} textAnchor="middle" fontSize={9} fill="#9CA3AF">Achieved beneficiaries (millions)</text>
+        </svg>
+      </div>
+
+      {/* Key Observations */}
+      <div className="flex flex-col gap-3">
+        <p className="text-[13px] font-semibold text-gray-700">Key Observations by Cohort</p>
+        <div className="flex flex-col gap-3">
+          <p className="text-[13px] text-gray-700 leading-relaxed">
+            <strong className="font-semibold">FY24 Only (121 projects):</strong> These projects contributed <strong>117.0 million</strong> beneficiaries in FY24 but exited the portfolio by FY25 (closed or no longer linked). Their departure represents the largest single source of beneficiary attrition between the two years.
+          </p>
+          <p className="text-[13px] text-gray-700 leading-relaxed">
+            <strong className="font-semibold">Both FY24 &amp; FY25 (69 projects, +89.0M change):</strong> The continuing cohort — the largest group — delivered 104.9M in FY24 and <strong>193.9M</strong> in FY25, an increase of <strong>89.0 million</strong>. This reflects a combination of project progress toward completion and the stricter FY25 de-duplication methodology applied to this cohort.
+          </p>
+          <p className="text-[13px] text-gray-700 leading-relaxed">
+            <strong className="font-semibold">FY25 Only (21 projects):</strong> Newly entering projects contributed <strong>50.2 million</strong> beneficiaries in FY25, partially offsetting the losses from the other two cohorts.
+          </p>
+        </div>
+      </div>
+
+      {/* Scatter plot — FY24 vs FY25 per project (shared cohort) */}
+      <div className="flex flex-col gap-2">
+        <p className="text-[12px] font-semibold text-gray-600 text-center">FY24 vs FY25 Achieved Beneficiaries</p>
+        <p className="text-[10.5px] text-gray-400 text-center -mt-1">Shared projects only; largest outlier excluded to improve readability</p>
+        <svg viewBox="0 0 540 370" style={{ width: "100%", display: "block" }}>
+          {/* Chart border / axis lines */}
+          <line x1={SX1} y1={SY_TOP} x2={SX1} y2={SY_BOT} stroke="#D1D5DB" strokeWidth={1} />
+          <line x1={SX1} y1={SY_BOT} x2={SX2} y2={SY_BOT} stroke="#D1D5DB" strokeWidth={1} />
+          {/* Gridlines X + Y — visible gray matching PDF */}
+          {[0, 5, 10, 15].map(v => (
+            <g key={`gx-${v}`}>
+              <line x1={sx(v)} y1={SY_TOP} x2={sx(v)} y2={SY_BOT} stroke="#D1D5DB" strokeWidth={0.8} />
+              <text x={sx(v)} y={SY_BOT + 13} textAnchor="middle" fontSize={9} fill="#9CA3AF">{v}M</text>
+            </g>
+          ))}
+          {[0, 5, 10, 15].map(v => (
+            <g key={`gy-${v}`}>
+              <line x1={SX1} y1={sy(v)} x2={SX2} y2={sy(v)} stroke="#D1D5DB" strokeWidth={0.8} />
+              <text x={SX1 - 6} y={sy(v) + 4} textAnchor="end" fontSize={9} fill="#9CA3AF">{v}M</text>
+            </g>
+          ))}
+          {/* 45-degree reference line */}
+          <line x1={sx(0)} y1={sy(0)} x2={sx(15)} y2={sy(15)} stroke="#9CA3AF" strokeWidth={1.2} strokeDasharray="5,4" />
+          {/* "Above line" — upper-left quadrant, matching PDF position */}
+          <text x={sx(2)} y={sy(14)} fontSize={9.5} fill="#6B7280" fontWeight="600">Above line:</text>
+          <text x={sx(2)} y={sy(14) + 13} fontSize={9.5} fill="#6B7280" fontWeight="600">FY25 &gt; FY24</text>
+          {/* "Below line" — lower-right quadrant */}
+          <text x={sx(9)} y={sy(2.5)} fontSize={9.5} fill="#6B7280" fontWeight="600">Below line:</text>
+          <text x={sx(9)} y={sy(2.5) + 13} fontSize={9.5} fill="#6B7280" fontWeight="600">FY25 &lt; FY24</text>
+          {/* Data points */}
+          {SSN_SCATTER.map((pt, i) => {
+            const c = REGION_COLORS[pt.region] ?? "#6B7280";
+            const px = sx(pt.fy24), py = sy(pt.fy25);
+            return (
+              <circle
+                key={i}
+                cx={px} cy={py} r={pt.r}
+                fill={c} fillOpacity={scatterTip?.pt === pt ? 1 : 0.7}
+                stroke={scatterTip?.pt === pt ? "#374151" : "white"}
+                strokeWidth={scatterTip?.pt === pt ? 1.5 : 0.8}
+                style={{ cursor: "pointer" }}
+                onMouseEnter={() => setScatterTip({ pt, px, py })}
+                onMouseLeave={() => setScatterTip(null)}
+              />
+            );
+          })}
+          {/* Hover tooltip */}
+          {scatterTip && (() => {
+            const { pt, px, py } = scatterTip;
+            const lines = [
+              ...(pt.code ? [{ text: pt.code, bold: true }] : []),
+              { text: `Region: ${pt.region}`, bold: false },
+              { text: `FY24: ${pt.fy24}M`, bold: false },
+              { text: `FY25: ${pt.fy25}M`, bold: false },
+            ];
+            const tipW = 118, tipH = lines.length * 14 + 12;
+            const tipX = px > (SX1 + sW * 0.6) ? px - tipW - 10 : px + 12;
+            const tipY = py < SY_TOP + 60 ? py + 8 : py - tipH - 8;
+            return (
+              <g style={{ pointerEvents: "none" }}>
+                <rect x={tipX} y={tipY} width={tipW} height={tipH} rx={4} fill="white" stroke="#D1D5DB" strokeWidth={1} />
+                {lines.map((l, i) => (
+                  <text key={i} x={tipX + 8} y={tipY + 14 + i * 14} fontSize={9.5} fill={l.bold ? "#111827" : "#6B7280"} fontWeight={l.bold ? "700" : "400"}>{l.text}</text>
+                ))}
+              </g>
+            );
+          })()}
+          {/* Labels for outliers */}
+          <text x={sx(11.5) + 9} y={sy(17.0) - 6} fontSize={8.5} fill="#374151" fontWeight="600">P176935</text>
+          <text x={sx(14.0) - 52} y={sy(15.8) - 8} fontSize={8.5} fill="#374151" fontWeight="600">P160665</text>
+          <text x={sx(0.6) + 10} y={sy(10.5) - 5} fontSize={8.5} fill="#374151" fontWeight="600">P179095</text>
+          <text x={sx(0.5) + 10} y={sy(9.8) + 4} fontSize={8.5} fill="#374151" fontWeight="600">P179365</text>
+          <text x={sx(0.7) + 10} y={sy(9.2) + 14} fontSize={8.5} fill="#374151" fontWeight="600">P173582</text>
+          <text x={sx(4.6) + 10} y={sy(4.8) + 4} fontSize={8.5} fill="#374151" fontWeight="600">P169165</text>
+          {/* Axis labels */}
+          <text x={(SX1 + SX2) / 2} y={SY_BOT + 28} textAnchor="middle" fontSize={10} fill="#6B7280" fontWeight="600">FY24 Achieved beneficiaries (millions)</text>
+          <text transform={`rotate(-90)`} x={-(SY_TOP + sH / 2)} y={13} textAnchor="middle" fontSize={10} fill="#6B7280" fontWeight="600">FY25 Achieved beneficiaries (millions)</text>
+          {/* Note */}
+          <text x={(SX1 + SX2) / 2} y={SY_BOT + 42} textAnchor="middle" fontSize={8.5} fill="#9CA3AF" fontStyle="italic">Note: Excludes largest project by Achieved beneficiaries: P174484. Dashed line indicates no change.</text>
+        </svg>
+        {/* Region legend */}
+        <div className="flex items-center gap-3 flex-wrap justify-center pt-1">
+          <span className="text-[10px] font-semibold text-gray-400">Region</span>
+          {(["AFE","AFW","EAP","ECA","LCR","MENAAP","SAR"] as const).map(r => (
+            <span key={r} className="flex items-center gap-1 text-[10px] text-gray-500">
+              <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: REGION_COLORS[r] }} />
+              {r}
+            </span>
+          ))}
+        </div>
+        <p className="text-[12.5px] text-gray-600 leading-relaxed">
+          The figure above compares the number of achieved beneficiaries for projects reporting under the Social Safety Net scorecard indicator in both FY24 and FY25, with the largest outlier excluded to improve readability. Projects above the 45-degree line reached more beneficiaries in FY25 than FY24, while those below the line reached fewer. Most observations are concentrated near the line, suggesting relatively stable beneficiary achievement across fiscal years, with a small number of projects exhibiting more substantial year-over-year changes.
+        </p>
+      </div>
+
+      {/* Top Project Drivers */}
+      <div className="flex flex-col gap-3">
+        <p className="text-[12px] font-semibold text-gray-600 text-center">Top Project Drivers of the FY24–FY25 Increase</p>
+        <div className="flex flex-col gap-1.5">
+          {SSN_DRIVERS.map((d) => {
+            const barPct = (d.delta / SSN_DRIVERS[0].delta) * 100;
+            const color = REGION_COLORS[d.region] ?? "#6B7280";
+            return (
+              <div key={d.code} className="flex items-center gap-3">
+                <div className="w-[220px] shrink-0 text-right">
+                  <span className="text-[10.5px] text-gray-500 leading-tight">{d.code}</span>
+                  <br />
+                  <span className="text-[11px] text-gray-700 leading-tight">{d.name}</span>
+                </div>
+                <div className="flex-1 flex items-center gap-2">
+                  <div className="flex-1 bg-gray-100 rounded-sm h-4 relative overflow-hidden">
+                    <div className="h-full rounded-sm" style={{ width: `${barPct}%`, background: color }} />
+                  </div>
+                  <span className="w-14 text-right text-[12px] font-semibold tabular-nums shrink-0" style={{ color }}>{d.delta}M</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {/* Region legend */}
+        <div className="flex items-center gap-4 flex-wrap pt-1">
+          <span className="text-[10.5px] font-semibold text-gray-400">Region</span>
+          {["AFE", "AFW", "LCR", "MENAAP"].map(r => (
+            <span key={r} className="flex items-center gap-1.5 text-[10.5px] text-gray-500">
+              <span className="w-3 h-3 rounded-full" style={{ background: REGION_COLORS[r] ?? "#6B7280" }} />
+              {r}
+            </span>
+          ))}
+        </div>
+        <p className="text-[12.5px] text-gray-600 leading-relaxed">
+          The FY24–FY25 increase was driven primarily by a small number of high-impact projects, with Pakistan's Crisis-Resilient Social Protection project (P174484) accounting for the largest share at <strong>56.7 million</strong> additional beneficiaries. Other notable contributors include Brazil's Bolsa Familia 4 (9.3M) and a Shock Responsive Social Protection project in Eastern and Southern Africa (9.2M). Growth was spread across MENAAP, LCR, and AFE.
+        </p>
+      </div>
+
+      <UsedSources sources={[
+        "Scorecard Indicator Data: Beneficiaries of social safety net programs — All Countries (FY24 & FY25)",
+        "Scorecard Project Data: CSC_RES_SOC_SAF_PROG project-level contributions (FY24 & FY25)",
+      ]} />
+    </div>
+  );
+}
+
 // ─── Analytics Engine: Comparative Response ──────────────────────────────────
-// Structured three-layer comparative response for the fy24-fy25-delta flow.
+// Structured three-layer comparative response for the analytics-engine flow.
 // Mirrors the Analytics Engine spec: headline → ranked chart → synthesis →
 // Layer 1 (portfolio) → Layer 2 (common cohort) → Layer 3 (project drivers) →
 // methodology / provenance → follow-up prompts.
@@ -1203,35 +1897,194 @@ const NON_CONTRIBUTING = [
 ];
 
 function DonorAttributionStats({ disabled = false }: { disabled?: boolean }) {
-  const stats = [
-    { label: "Norway's IDA21 subscription", value: "$1.97B" },
-    { label: "Share of total donor contributions", value: "4.3%" },
-    { label: "Attributed beneficiaries (FY25)", value: "~12.5M" },
-    { label: "Results in FCS countries", value: "38%" },
+  const { isDark } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setMounted(true), 120); return () => clearTimeout(t); }, []);
+
+  // Ring chart config — Norway's 4.3% share of total donor pool
+  const R = 38; const CX = 50; const CY = 50;
+  const circumference = 2 * Math.PI * R;
+  const sharePct = 4.3;
+  const dashOffset = circumference * (1 - sharePct / 100);
+
+  // Sector bars — total 12.5M people
+  const sectors = [
+    { label: "Health services",        value: 5.2, color: "#0288D1" },
+    { label: "Education",              value: 4.1, color: "#7C3AED" },
+    { label: "Social protection",      value: 3.2, color: "#059669" },
   ];
-  const breakdown = [
-    { label: "People reached with health services", value: "~5.2M" },
-    { label: "Students supported", value: "~4.1M" },
-    { label: "Social safety net beneficiaries", value: "~3.2M" },
+  const total = sectors.reduce((s, x) => s + x.value, 0);
+
+  const card = isDark
+    ? { bg: "rgba(255,255,255,0.05)", border: "rgba(255,255,255,0.09)", text: "rgba(255,255,255,0.88)", sub: "rgba(255,255,255,0.45)" }
+    : { bg: "rgba(0,57,107,0.04)", border: "rgba(0,57,107,0.10)", text: "#1A2E3A", sub: "#6B7C8E" };
+
+  const trackBg = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,57,107,0.08)";
+
+  return (
+    <div className={`flex flex-col gap-4 transition-opacity duration-500 ${disabled ? "opacity-40 pointer-events-none" : ""}`}>
+
+      {/* Header */}
+      <div className="flex items-center gap-2.5">
+        {/* Norway flag pill */}
+        <div className="flex items-center gap-1.5 rounded-full px-2.5 py-1" style={{ background: isDark ? "rgba(239,43,45,0.15)" : "rgba(239,43,45,0.08)", border: "1px solid rgba(239,43,45,0.20)" }}>
+          <span style={{ fontSize: 14, lineHeight: 1 }}>🇳🇴</span>
+          <span style={{ fontSize: 11.5, fontWeight: 700, color: isDark ? "rgba(255,255,255,0.88)" : "#c0182a", fontFamily: "'Open Sans', sans-serif", letterSpacing: "0.01em" }}>Norway</span>
+        </div>
+        <span style={{ fontSize: 11, color: card.sub, fontFamily: "'Open Sans', sans-serif" }}>IDA21 donor attribution · FY25</span>
+      </div>
+
+      {/* Row 1: Ring + key stats */}
+      <div className="grid grid-cols-[auto_1fr] gap-3 items-center">
+
+        {/* Donut ring — share of donor pool */}
+        <div style={{ position: "relative", width: 100, height: 100, flexShrink: 0 }}>
+          <svg width="100" height="100" viewBox="0 0 100 100" style={{ transform: "rotate(-90deg)" }}>
+            {/* Track */}
+            <circle cx={CX} cy={CY} r={R} fill="none" stroke={trackBg} strokeWidth={11} />
+            {/* Fill arc */}
+            <circle
+              cx={CX} cy={CY} r={R} fill="none"
+              stroke="#EF2B2D"
+              strokeWidth={11}
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={mounted ? dashOffset : circumference}
+              style={{ transition: "stroke-dashoffset 1.1s cubic-bezier(0.4,0,0.2,1)" }}
+            />
+          </svg>
+          {/* Center label */}
+          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1 }}>
+            <span style={{ fontSize: 18, fontWeight: 800, lineHeight: 1, color: card.text, fontFamily: "'Open Sans', sans-serif" }}>4.3%</span>
+            <span style={{ fontSize: 9, color: card.sub, fontFamily: "'Open Sans', sans-serif", textAlign: "center", lineHeight: 1.3 }}>of donor<br/>pool</span>
+          </div>
+        </div>
+
+        {/* Key stat stack */}
+        <div className="flex flex-col gap-2">
+          {[
+            { value: "$1.97B", label: "IDA21 subscription" },
+            { value: "~12.5M", label: "attributed beneficiaries" },
+          ].map((s) => (
+            <div key={s.label} style={{ padding: "10px 14px", borderRadius: 12, background: card.bg, border: `1px solid ${card.border}` }}>
+              <div style={{ fontSize: 20, fontWeight: 800, color: card.text, lineHeight: 1, fontFamily: "'Open Sans', sans-serif" }}>{s.value}</div>
+              <div style={{ fontSize: 11.5, color: card.sub, marginTop: 3, fontFamily: "'Open Sans', sans-serif" }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* FCS countries callout */}
+      <div style={{ padding: "12px 14px", borderRadius: 12, background: card.bg, border: `1px solid ${card.border}` }}>
+        <div className="flex items-center justify-between mb-2">
+          <span style={{ fontSize: 11.5, fontWeight: 600, color: card.sub, fontFamily: "'Open Sans', sans-serif", letterSpacing: "0.01em" }}>Results in fragile &amp; conflict-affected states</span>
+          <span style={{ fontSize: 16, fontWeight: 800, color: isDark ? "#F97316" : "#C2410C", fontFamily: "'Open Sans', sans-serif" }}>38%</span>
+        </div>
+        <div style={{ height: 7, borderRadius: 100, background: trackBg, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: mounted ? "38%" : "0%", borderRadius: 100, background: "linear-gradient(90deg, #F97316, #FB923C)", transition: "width 1.1s cubic-bezier(0.4,0,0.2,1) 0.2s" }} />
+        </div>
+        <div className="flex justify-between mt-1.5">
+          <span style={{ fontSize: 10, color: isDark ? "rgba(255,255,255,0.28)" : "#9CAAB8", fontFamily: "'Open Sans', sans-serif" }}>0%</span>
+          <span style={{ fontSize: 10, color: isDark ? "rgba(255,255,255,0.28)" : "#9CAAB8", fontFamily: "'Open Sans', sans-serif" }}>100%</span>
+        </div>
+      </div>
+
+      {/* Sector bars */}
+      <div style={{ padding: "14px 14px 10px", borderRadius: 12, background: card.bg, border: `1px solid ${card.border}` }}>
+        <div className="flex items-center justify-between mb-3">
+          <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: card.sub, fontFamily: "'Open Sans', sans-serif" }}>People pillar · attribution</span>
+          <span style={{ fontSize: 10.5, color: card.sub, fontFamily: "'Open Sans', sans-serif" }}>~{total.toFixed(1)}M total</span>
+        </div>
+        <div className="flex flex-col gap-3">
+          {sectors.map((s, i) => {
+            const pct = (s.value / total) * 100;
+            return (
+              <div key={s.label}>
+                <div className="flex items-baseline justify-between mb-1.5">
+                  <span style={{ fontSize: 12.5, color: card.text, fontFamily: "'Open Sans', sans-serif" }}>{s.label}</span>
+                  <div className="flex items-baseline gap-1.5">
+                    <span style={{ fontSize: 14, fontWeight: 700, color: s.color, fontFamily: "'Open Sans', sans-serif" }}>~{s.value}M</span>
+                    <span style={{ fontSize: 10.5, color: card.sub, fontFamily: "'Open Sans', sans-serif" }}>{pct.toFixed(0)}%</span>
+                  </div>
+                </div>
+                <div style={{ height: 6, borderRadius: 100, background: trackBg, overflow: "hidden" }}>
+                  <div style={{
+                    height: "100%",
+                    width: mounted ? `${pct}%` : "0%",
+                    borderRadius: 100,
+                    background: s.color,
+                    opacity: 0.85,
+                    transition: `width 1s cubic-bezier(0.4,0,0.2,1) ${0.15 + i * 0.12}s`,
+                  }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Stacked proportion preview */}
+        <div className="flex mt-4 rounded-full overflow-hidden" style={{ height: 8 }}>
+          {sectors.map((s, i) => (
+            <div
+              key={s.label}
+              style={{
+                width: mounted ? `${(s.value / total) * 100}%` : "0%",
+                background: s.color,
+                opacity: 0.80,
+                transition: `width 1s cubic-bezier(0.4,0,0.2,1) ${0.3 + i * 0.08}s`,
+                marginRight: i < sectors.length - 1 ? 2 : 0,
+              }}
+            />
+          ))}
+        </div>
+        <div className="flex gap-4 mt-2.5 flex-wrap">
+          {sectors.map((s) => (
+            <div key={s.label} className="flex items-center gap-1.5">
+              <div style={{ width: 8, height: 8, borderRadius: 2, background: s.color, opacity: 0.85, flexShrink: 0 }} />
+              <span style={{ fontSize: 10.5, color: card.sub, fontFamily: "'Open Sans', sans-serif" }}>{s.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CaveatItem({ n, children }: { n: number; children: React.ReactNode }) {
+  return (
+    <div className="flex gap-2 text-[11.5px] text-gray-500 leading-snug">
+      <span className="shrink-0 font-semibold text-gray-400 tabular-nums">{n}.</span>
+      <span>{children}</span>
+    </div>
+  );
+}
+
+function DataProvenanceTable({ isInternal }: { isInternal: boolean }) {
+  const rows = [
+    { field: "Primary data source",   value: "IDMS · IDA Results Measurement System"              },
+    { field: "Snapshot version",       value: "FY2025 final (end-June 2025)"                       },
+    { field: "Retrieval date",         value: "30 Jun 2025"                                        },
+    { field: "Estimates used",         value: "None — all figures from verified source records"    },
+    { field: "External sources used",  value: "None"                                               },
+    { field: "AI confidence level",    value: "High — direct retrieval from approved sources"      },
+    ...(isInternal ? [
+      { field: "Review status", value: "Level 2 · Analyst sign-off required before external use" },
+    ] : [
+      { field: "Review status", value: "Cleared for external use · Published Scorecard data only" },
+    ]),
   ];
   return (
-    <div className={`flex flex-col gap-4 ${disabled ? "opacity-40 pointer-events-none" : ""}`}>
-      <div className="grid grid-cols-2 gap-3">
-        {stats.map((s) => (
-          <div key={s.label} className="bg-gray-50 rounded-xl p-4">
-            <div className="text-[22px] font-bold text-gray-900 leading-none">{s.value}</div>
-            <div className="text-[12px] text-gray-500 mt-1.5 leading-snug">{s.label}</div>
-          </div>
-        ))}
+    <div className="rounded-lg border border-gray-200 overflow-hidden">
+      <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Data Provenance</span>
       </div>
-      <div className="border border-gray-100 rounded-xl overflow-hidden">
-        <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">People pillar attribution</span>
-        </div>
-        {breakdown.map((b) => (
-          <div key={b.label} className="flex items-center justify-between px-4 py-3 border-b border-gray-100 last:border-0">
-            <span className="text-[13px] text-gray-700">{b.label}</span>
-            <span className="text-[13px] font-semibold text-gray-900">{b.value}</span>
+      <div className="divide-y divide-gray-100">
+        {rows.map((r) => (
+          <div key={r.field} className="flex items-baseline px-3 py-2 gap-3">
+            <span className="text-[11px] text-gray-400 shrink-0 w-36">{r.field}</span>
+            <span className={`text-[11.5px] font-medium ${r.field === "Review status" && isInternal ? "text-amber-700" : "text-gray-700"}`}>
+              {r.value}
+            </span>
           </div>
         ))}
       </div>
@@ -1244,11 +2097,213 @@ function ComparativeAnalyticsResponse({ disabled, leadDone }: { disabled: boolea
   const [showNonContrib, setShowNonContrib] = useState(false);
   const { isInternal } = useViewMode();
 
+  if (!isInternal) {
+    return (
+      <div className="flex flex-col gap-5" style={{ opacity: leadDone ? 1 : 0, transition: "opacity 0.7s" }}>
+        {/* Headline Indicator Context */}
+        <div className="flex flex-col gap-2">
+          <p className="text-[13px] font-semibold text-gray-700">Headline Indicator Context</p>
+          <p className="text-[12.5px] text-gray-600 leading-relaxed">Before examining cohorts, the published headline totals across all 8 Scorecard indicators provide the reference frame:</p>
+          <ul className="flex flex-col gap-1.5 pl-1">
+            <li className="flex items-start gap-2 text-[13px] text-gray-700">
+              <span className="mt-1 w-1.5 h-1.5 rounded-full bg-gray-400 shrink-0" />
+              <span><strong className="font-semibold">FY24:</strong> 1,512M people reached across 8 indicators, 412 projects <em className="text-gray-500">(combined portfolio)</em></span>
+            </li>
+            <li className="flex items-start gap-2 text-[13px] text-gray-700">
+              <span className="mt-1 w-1.5 h-1.5 rounded-full bg-gray-400 shrink-0" />
+              <span><strong className="font-semibold">FY25:</strong> 1,569M people reached, 438 projects <em className="text-gray-500">(+57M; +3.8% YoY)</em></span>
+            </li>
+          </ul>
+        </div>
+
+        {/* Portfolio Cohort Breakdown */}
+        <div className="flex flex-col gap-3">
+          <p className="text-[13px] font-semibold text-gray-700">Project Cohort Breakdown</p>
+          <div className="rounded-xl border border-gray-200 overflow-hidden">
+            <div className="grid grid-cols-[1fr_80px_110px_110px_90px] bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+              {["Project Cohort", "# Projects", "FY24 Achieved", "FY25 Achieved", "Change"].map((h, i) => (
+                <span key={i} className={`text-[11px] font-bold text-gray-600 ${i > 0 ? "text-right" : ""}`}>{h}</span>
+              ))}
+            </div>
+            {[
+              { cohort: "FY24 only",           projects: 128, fy24: "142M", fy25: "—",      change: "—",     bold: false },
+              { cohort: "Both FY24 & FY25",    projects: 347, fy24: "1,386M", fy25: "1,512M", change: "+126M", bold: false },
+              { cohort: "FY25 only",           projects:  91, fy24: "—",     fy25: "57M",   change: "—",     bold: false },
+              { cohort: "All cohorts combined",projects: 438, fy24: "—",     fy25: "1,569M", change: "—",    bold: true  },
+            ].map((row) => (
+              <div
+                key={row.cohort}
+                className={`grid grid-cols-[1fr_80px_110px_110px_90px] px-4 py-3 border-b border-gray-100 last:border-b-0 ${row.bold ? "bg-gray-50" : "bg-white"}`}
+              >
+                <span className={`text-[12.5px] ${row.bold ? "font-semibold text-gray-800" : "text-gray-700"}`}>{row.cohort}</span>
+                <span className={`text-[12.5px] text-right ${row.bold ? "font-semibold text-gray-800" : "text-gray-600"}`}>{row.projects}</span>
+                <span className={`text-[12.5px] text-right tabular-nums ${row.bold ? "font-semibold text-gray-800" : "text-gray-600"}`}>{row.fy24}</span>
+                <span className={`text-[12.5px] text-right tabular-nums ${row.bold ? "font-semibold text-gray-800" : "text-gray-600"}`}>{row.fy25}</span>
+                <span className={`text-[12.5px] text-right tabular-nums font-semibold ${row.change.startsWith("+") ? "text-emerald-700" : "text-gray-600"}`}>{row.change}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[12.5px] text-gray-600 leading-relaxed">
+            The continuing cohort (347 projects in both FY24 and FY25) accounts for 88% of total reach and is the primary driver of the +57M portfolio gain. The 128 exiting projects removed 142M from the FY25 count; the 91 new entrants added 57M back.
+          </p>
+        </div>
+
+        <RankedDeltaChart />
+        <p className="text-[13.5px] text-gray-700 leading-relaxed">
+          <strong className="font-semibold text-gray-900">Broadband (+99%)</strong> is the widest gainer, doubling off a small base.{" "}
+          <strong className="font-semibold text-gray-900">Climate resilience and Tax-to-GDP</strong> are the only two indicators that declined.
+          The People pillar's consistent +12% was not driven by more projects — projects that were already active matured and delivered more, and fewer beneficiaries were counted more than once compared to the prior year.
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          {(["fy24", "fy25"] as const).map((fy) => {
+            const s = PORTFOLIO_STATS[fy];
+            return (
+              <div key={fy} className="bg-gray-50 rounded-lg p-3 flex flex-col gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{fy.toUpperCase()}</span>
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-[11.5px] text-gray-500">Active projects</span>
+                    <span className="text-[13.5px] font-bold text-gray-900 tabular-nums">{s.projects}</span>
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-[11.5px] text-gray-500">Indicators reported</span>
+                    <span className="text-[13.5px] font-bold text-gray-900 tabular-nums">{s.indicators}</span>
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-[11.5px] text-gray-500">Deduplicated rows</span>
+                    <span className="text-[13.5px] font-bold text-gray-900 tabular-nums">{s.doubleFlagged}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-[13px] text-gray-600 leading-relaxed">
+          FY25 added <strong className="text-gray-800">26 net-new projects</strong>, a 6.3% increase. Where the same beneficiary was reached by more than one project, only one instance was counted — this deduplication rate improved slightly year-on-year.
+          Electricity access is a notable exception: fewer projects reported to this indicator in FY25, yet total reach still rose by 10 million people because the remaining projects were larger on average and operating outside fragile settings.
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-gray-50 rounded-lg p-3 flex flex-col gap-1.5">
+            <span className="text-[10.5px] text-gray-400 leading-snug">Projects active in both FY24 and FY25 <span className="text-gray-300">· 347 projects</span></span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-[18px] font-bold text-gray-900 tabular-nums">1,512M</span>
+              <span className="text-[11px] font-semibold text-emerald-600">+9.1%</span>
+            </div>
+            <span className="text-[10.5px] text-gray-400">FY24: 1,386M people</span>
+          </div>
+          <div className="bg-gray-50 rounded-lg p-3 flex flex-col gap-1.5">
+            <span className="text-[10.5px] text-gray-400 leading-snug">All active projects in FY25 <span className="text-gray-300">· full portfolio</span></span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-[18px] font-bold text-gray-900 tabular-nums">1,569M</span>
+              <span className="text-[11px] font-semibold text-emerald-600">+57M</span>
+            </div>
+            <span className="text-[10.5px] text-gray-400">from 91 new FY25 entrants</span>
+          </div>
+        </div>
+        <p className="text-[13px] text-gray-600 leading-relaxed">
+          The 347 projects active in both years account for 88% of total reach. Their +9.1% gain explains most of the People-pillar improvement — projects that entered the portfolio for the first time in FY25 contributed the remaining 3 percentage points.
+        </p>
+        <div className="flex flex-col gap-2 text-[12px] text-gray-500 leading-relaxed pt-3 border-t border-gray-100">
+          <p>
+            FY24 figures are as reported at end-June 2024; FY25 at end-June 2025. The broadband baseline was corrected from 115M to 109M after a methodology review, and the climate resilience figure was restated following a change in how anticipatory-action results are counted. All year-on-year comparisons use the restated baselines.
+          </p>
+          <UsedSources sources={[
+            "FY2024 and FY2025 IDA Results — indicator-level achieved values",
+            "Scorecard Metadata — deduplication rules (FY24/FY25 comparability)",
+            "Digital Connectivity methodology note — FY24 baseline restatement",
+            "Climate Resilience methodology note — anticipatory-action accounting change",
+          ]} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-5" style={{ opacity: leadDone ? 1 : 0, transition: "opacity 0.7s" }}>
 
+      {/* Headline Indicator Context */}
+      <div className="flex flex-col gap-2">
+        <p className="text-[13px] font-semibold text-gray-700">Headline Indicator Context</p>
+        <p className="text-[12.5px] text-gray-600 leading-relaxed">Before examining cohorts, the published headline totals across all 8 Scorecard indicators provide the reference frame:</p>
+        <ul className="flex flex-col gap-1.5 pl-1">
+          <li className="flex items-start gap-2 text-[13px] text-gray-700">
+            <span className="mt-1 w-1.5 h-1.5 rounded-full bg-gray-400 shrink-0" />
+            <span><strong className="font-semibold">FY24:</strong> 1,512M people reached across 8 indicators, 412 projects <em className="text-gray-500">(combined portfolio)</em></span>
+          </li>
+          <li className="flex items-start gap-2 text-[13px] text-gray-700">
+            <span className="mt-1 w-1.5 h-1.5 rounded-full bg-gray-400 shrink-0" />
+            <span><strong className="font-semibold">FY25:</strong> 1,569M people reached, 438 projects <em className="text-gray-500">(+57M; +3.8% YoY)</em></span>
+          </li>
+        </ul>
+      </div>
+
+      {/* Portfolio Cohort Breakdown */}
+      <div className="flex flex-col gap-3">
+        <p className="text-[13px] font-semibold text-gray-700">Project Cohort Breakdown</p>
+        <div className="rounded-xl border border-gray-200 overflow-hidden">
+          <div className="grid grid-cols-[1fr_80px_110px_110px_90px] bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+            {["Project Cohort", "# Projects", "FY24 Achieved", "FY25 Achieved", "Change"].map((h, i) => (
+              <span key={i} className={`text-[11px] font-bold text-gray-600 ${i > 0 ? "text-right" : ""}`}>{h}</span>
+            ))}
+          </div>
+          {[
+            { cohort: "FY24 only",           projects: 128, fy24: "142M", fy25: "—",      change: "—",     bold: false },
+            { cohort: "Both FY24 & FY25",    projects: 347, fy24: "1,386M", fy25: "1,512M", change: "+126M", bold: false },
+            { cohort: "FY25 only",           projects:  91, fy24: "—",     fy25: "57M",   change: "—",     bold: false },
+            { cohort: "All cohorts combined",projects: 438, fy24: "—",     fy25: "1,569M", change: "—",    bold: true  },
+          ].map((row) => (
+            <div
+              key={row.cohort}
+              className={`grid grid-cols-[1fr_80px_110px_110px_90px] px-4 py-3 border-b border-gray-100 last:border-b-0 ${row.bold ? "bg-gray-50" : "bg-white"}`}
+            >
+              <span className={`text-[12.5px] ${row.bold ? "font-semibold text-gray-800" : "text-gray-700"}`}>{row.cohort}</span>
+              <span className={`text-[12.5px] text-right ${row.bold ? "font-semibold text-gray-800" : "text-gray-600"}`}>{row.projects}</span>
+              <span className={`text-[12.5px] text-right tabular-nums ${row.bold ? "font-semibold text-gray-800" : "text-gray-600"}`}>{row.fy24}</span>
+              <span className={`text-[12.5px] text-right tabular-nums ${row.bold ? "font-semibold text-gray-800" : "text-gray-600"}`}>{row.fy25}</span>
+              <span className={`text-[12.5px] text-right tabular-nums font-semibold ${row.change.startsWith("+") ? "text-emerald-700" : "text-gray-600"}`}>{row.change}</span>
+            </div>
+          ))}
+        </div>
+        <p className="text-[12.5px] text-gray-600 leading-relaxed">
+          The continuing cohort (347 projects in both FY24 and FY25) accounts for 88% of total reach and is the primary driver of the +57M portfolio gain. The 128 exiting projects removed 142M from the FY25 count; the 91 new entrants added 57M back.
+        </p>
+      </div>
+
+      {/* Level 2 analyst review flag */}
+      {isInternal && (
+        <div className="flex items-start gap-2.5 px-3.5 py-3 rounded-lg bg-amber-50 border border-amber-200">
+          <IconLock size={13} className="text-amber-600 mt-0.5 shrink-0" />
+          <p className="text-[12px] text-amber-800 leading-snug">
+            <strong className="font-semibold">Level 2 output — analyst review required.</strong>{" "}
+            This response includes variance analysis across fiscal years. It must not be shared externally without sign-off from the Scorecard team.
+          </p>
+        </div>
+      )}
+
+      {/* How to read this */}
+      <p className="text-[11.5px] text-gray-400 italic leading-snug">
+        Each bar shows the year-on-year percentage change per Scorecard indicator (FY24 → FY25). Green = improvement; red = decline. The dashed line marks the WBG portfolio average. Values are actuals from verified source records — no projections or estimates are included. See caveats ① ② below for two indicators where baselines were restated.
+      </p>
+
       {/* Ranked bar chart */}
       <RankedDeltaChart />
+
+      {/* Inline caveats — adjacent to chart values they qualify */}
+      <div className="flex flex-col gap-2 px-3 py-3 rounded-lg bg-gray-50 border border-gray-100">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Caveats</span>
+        <CaveatItem n={1}>
+          <strong className="font-semibold text-gray-600">Broadband (+99%)</strong> — FY24 baseline corrected from 115M to 109M following a methodology review. The YoY gain reflects the restated baseline; without restatement the gain would be approximately +89%.
+        </CaveatItem>
+        <CaveatItem n={2}>
+          <strong className="font-semibold text-gray-600">Climate resilience (−2%)</strong> — FY24 figure restated after anticipatory-action results were removed from the prior-year count. The apparent decline partly reflects this restatement, not operational deterioration alone.
+        </CaveatItem>
+        <CaveatItem n={3}>
+          <strong className="font-semibold text-gray-600">Institutional scope</strong> — figures represent WBG-wide totals. IFC and MIGA institutional results are not disaggregated in this view. Results for IFC and MIGA require separate retrieval from their respective Results Measurement Systems.
+        </CaveatItem>
+        <CaveatItem n={4}>
+          <strong className="font-semibold text-gray-600">Portfolio composition</strong> — 26 projects entered the active portfolio between FY24 and FY25. The full-portfolio total and the common-cohort figure below are not directly comparable; see common cohort section for a like-for-like measure.
+        </CaveatItem>
+      </div>
 
       {/* Synthesis */}
       <p className="text-[13.5px] text-gray-700 leading-relaxed">
@@ -1257,7 +2312,7 @@ function ComparativeAnalyticsResponse({ disabled, leadDone }: { disabled: boolea
         The People pillar's consistent +12% was not driven by more projects — projects that were already active matured and delivered more, and fewer beneficiaries were counted more than once compared to the prior year.
       </p>
 
-      {/* Portfolio stats */}
+      {/* Portfolio stats — caveat ③ applies */}
       <div className="grid grid-cols-2 gap-3">
         {(["fy24", "fy25"] as const).map((fy) => {
           const s = PORTFOLIO_STATS[fy];
@@ -1274,7 +2329,7 @@ function ComparativeAnalyticsResponse({ disabled, leadDone }: { disabled: boolea
                   <span className="text-[13.5px] font-bold text-gray-900 tabular-nums">{s.indicators}</span>
                 </div>
                 <div className="flex items-baseline justify-between">
-                  <span className="text-[11.5px] text-gray-500">Deduplicated rows</span>
+                  <span className="text-[11.5px] text-gray-500">Deduplicated rows <span className="text-gray-300">③</span></span>
                   <span className="text-[13.5px] font-bold text-gray-900 tabular-nums">{s.doubleFlagged}</span>
                 </div>
               </div>
@@ -1288,10 +2343,10 @@ function ComparativeAnalyticsResponse({ disabled, leadDone }: { disabled: boolea
         Electricity access is a notable exception: fewer projects reported to this indicator in FY25, yet total reach still rose by 10 million people because the remaining projects were larger on average and operating outside fragile settings.
       </p>
 
-      {/* Common cohort */}
+      {/* Common cohort — caveat ④ applies */}
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-gray-50 rounded-lg p-3 flex flex-col gap-1.5">
-          <span className="text-[10.5px] text-gray-400 leading-snug">Projects active in both FY24 and FY25 <span className="text-gray-300">· 347 projects</span></span>
+          <span className="text-[10.5px] text-gray-400 leading-snug">Projects active in both FY24 and FY25 <span className="text-gray-300">· 347 projects · ④</span></span>
           <div className="flex items-baseline gap-2">
             <span className="text-[18px] font-bold text-gray-900 tabular-nums">1,512M</span>
             <span className="text-[11px] font-semibold text-emerald-600">+9.1%</span>
@@ -1299,7 +2354,7 @@ function ComparativeAnalyticsResponse({ disabled, leadDone }: { disabled: boolea
           <span className="text-[10.5px] text-gray-400">FY24: 1,386M people</span>
         </div>
         <div className="bg-gray-50 rounded-lg p-3 flex flex-col gap-1.5">
-          <span className="text-[10.5px] text-gray-400 leading-snug">All active projects in FY25 <span className="text-gray-300">· full portfolio</span></span>
+          <span className="text-[10.5px] text-gray-400 leading-snug">All active projects in FY25 <span className="text-gray-300">· full portfolio · ④</span></span>
           <div className="flex items-baseline gap-2">
             <span className="text-[18px] font-bold text-gray-900 tabular-nums">1,569M</span>
             <span className="text-[11px] font-semibold text-emerald-600">+57M</span>
@@ -1312,7 +2367,7 @@ function ComparativeAnalyticsResponse({ disabled, leadDone }: { disabled: boolea
         The 347 projects active in both years account for 88% of total reach. Their +9.1% gain explains most of the People-pillar improvement — projects that entered the portfolio for the first time in FY25 contributed the remaining 3 percentage points.
       </p>
 
-      {/* Project-level drivers */}
+      {/* Project-level drivers — internal only */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Top drivers</span>
@@ -1372,61 +2427,153 @@ function ComparativeAnalyticsResponse({ disabled, leadDone }: { disabled: boolea
         )}
       </div>
 
-      {/* Methodology note + sources */}
-      <div className="flex flex-col gap-2 text-[12px] text-gray-500 leading-relaxed pt-3 border-t border-gray-100">
+      {/* Methodology note */}
+      <div className="flex flex-col gap-1.5 text-[12px] text-gray-500 leading-relaxed pt-3 border-t border-gray-100">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Methodology note</span>
         <p>
-          FY24 figures are as reported at end-June 2024; FY25 at end-June 2025. The broadband baseline was corrected from 115M to 109M after a methodology review, and the climate resilience figure was restated following a change in how anticipatory-action results are counted. All year-on-year comparisons use the restated baselines.
+          FY24 figures are as reported at end-June 2024; FY25 at end-June 2025. Aggregation follows the Results Calculation Handbook per-indicator rules. Deduplication applied per indicator where the same beneficiary cohort is served by multiple projects in the same country. See caveats ① and ② for restatements affecting comparability.
         </p>
         <UsedSources sources={[
           "FY2024 and FY2025 IDA Results — indicator-level achieved values",
           "Scorecard Metadata — deduplication rules (FY24/FY25 comparability)",
-          "Digital Connectivity methodology note — FY24 baseline restatement",
-          "Climate Resilience methodology note — anticipatory-action accounting change",
+          "Digital Connectivity methodology note v2.1 — FY24 baseline restatement",
+          "Climate Resilience methodology note v3.0 — anticipatory-action accounting change",
         ]} />
       </div>
+
+      {/* Data Provenance / Vintage table */}
+      <DataProvenanceTable isInternal={isInternal} />
 
     </div>
   );
 }
 
-// HNP measurement flow — a methodology card. Left column documents what
-// counts (and what doesn't); right column charts the 5-year reach trajectory
-// ─── Methods Advisor Card ────────────────────────────────────────────────────
+// ─── Methods Advisor shared sub-components ───────────────────────────────────
+
+function MethodsDirectAnswer({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="px-3.5 py-3 rounded-lg border-l-2 border-blue-400 bg-blue-50">
+      <p className="text-[13.5px] text-gray-800 leading-snug font-medium">{children}</p>
+    </div>
+  );
+}
+
+function MethodsNextAction({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1 pt-3 border-t border-gray-100">
+      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Next action</span>
+      <p className="text-[12.5px] text-gray-600 leading-snug">{children}</p>
+    </div>
+  );
+}
+
+function MethodsEscalation({ disabled = false }: { disabled?: boolean }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-lg border border-gray-200 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => !disabled && setOpen((v) => !v)}
+        disabled={disabled}
+        className="w-full flex items-center justify-between px-3.5 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+      >
+        <span className="text-[12px] text-gray-500">Need Scorecard team verification?</span>
+        <IconChevronDown size={13} className={`text-gray-400 transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="px-3.5 py-3 flex flex-col gap-2 text-[12px] text-gray-600 leading-snug border-t border-gray-100">
+          <p>Some methodology questions require human sign-off — for example, if a methodology note doesn't cover your specific case, if you believe there's an error in your project's data capture, or if you need a policy interpretation.</p>
+          <button
+            type="button"
+            className="self-start flex items-center gap-1.5 text-[12px] font-medium text-blue-600 hover:text-blue-800 transition-colors"
+          >
+            <IconPencil size={11} />
+            Draft a message to the Scorecard team
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MethodsExpandableExplanation({ children }: { children: React.ReactNode }) {
+  const [expanded, setExpanded] = useState(false);
+  const childArray = React.Children.toArray(children);
+  const first = childArray[0];
+  const rest = childArray.slice(1);
+  return (
+    <div className="flex flex-col gap-3 text-[13.5px] text-gray-700 leading-relaxed">
+      {first}
+      {rest.length > 0 && (
+        <>
+          {expanded && rest}
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="self-start text-[12px] text-blue-600 hover:text-blue-800 transition-colors"
+          >
+            {expanded ? "Show less" : `Show full explanation (${rest.length} more paragraph${rest.length > 1 ? "s" : ""})`}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Methods Advisor Card ─────────────────────────────────────────────────────
 // Renders a structured methodology card for text-based Methods Advisor flows
 // (taxonomy and compilation) — no chart data, pure structure explanation.
 function MethodsAdvisorCard({ flow, disabled = false }: { flow: "methods-taxonomy" | "methods-compilation"; disabled?: boolean }) {
   const isTaxonomy = flow === "methods-taxonomy";
   return (
-    <div className={`flex flex-col gap-3 text-[13.5px] text-gray-700 leading-relaxed ${disabled ? "opacity-90" : ""}`}>
+    <div className={`flex flex-col gap-4 ${disabled ? "opacity-90" : ""}`}>
       {isTaxonomy ? (
         <>
-          <p>
-            The Scorecard is structured in three layers. At the top, Outcome Areas define the WBG's strategic development priorities — there are six in the FY25 Scorecard, covering poverty, prosperity, people, resilience, sustainability, and institutions. <Cite>IDA Scorecard Metadata</Cite>
-          </p>
-          <p>
-            Within each Outcome Area sit two distinct types of indicators. Results Indicators measure what WBG operations directly deliver — they are sourced from project Implementation Status Reports and aggregate from project level up to a global portfolio total. <Cite>Results Handbook</Cite>
-          </p>
-          <p>
-            Client Context Indicators measure the development environment those operations work in. They are drawn from external statistical sources such as the World Development Indicators and IMF databases, and are reported at country level only — they are not summed to a portfolio total. The two types use different data structures and different source systems and are not interchangeable. <Cite>Results Handbook</Cite>
-          </p>
+          <MethodsDirectAnswer>
+            Results Indicators, Client Context Indicators, and Outcome Areas are three separate layers of the Scorecard structure. Results Indicators report what WBG operations deliver; Client Context Indicators report the development environment those operations work in. Both are organized under Outcome Areas — the six strategic groupings that frame WBG performance.
+          </MethodsDirectAnswer>
+          <MethodsExpandableExplanation>
+            <p className="text-[13.5px] text-gray-700 leading-relaxed">
+              The Scorecard is structured in three layers. At the top, Outcome Areas define the WBG's strategic development priorities — there are six in the FY25 Scorecard, covering poverty, prosperity, people, resilience, sustainability, and institutions. <Cite>IDA Scorecard Metadata</Cite>
+            </p>
+            <p className="text-[13.5px] text-gray-700 leading-relaxed">
+              Within each Outcome Area sit two distinct types of indicators. Results Indicators measure what WBG operations directly deliver — they are sourced from project Implementation Status Reports and aggregate from project level up to a global portfolio total. <Cite>Results Handbook</Cite>
+            </p>
+            <p className="text-[13.5px] text-gray-700 leading-relaxed">
+              Client Context Indicators measure the development environment those operations work in. They are drawn from external statistical sources such as the World Development Indicators and IMF databases, and are reported at country level only — they are not summed to a portfolio total. The two types use different data structures and different source systems and are not interchangeable. <Cite>Results Handbook</Cite>
+            </p>
+          </MethodsExpandableExplanation>
           <p className="text-[11px] text-gray-400">
             Source: IDA Scorecard Metadata — Result sheet · Results Handbook
           </p>
+          <MethodsNextAction>
+            To see which specific indicators fall under each Outcome Area, open the IDA Scorecard Metadata — Result sheet. For analysis of how Results Indicators are performing within an Outcome Area, use the Analytics Engine.
+          </MethodsNextAction>
+          <MethodsEscalation disabled={disabled} />
         </>
       ) : (
         <>
-          <p>
-            Scorecard Results Indicators are compiled through an annual cycle that runs from July to December for the prior fiscal year. The process begins when Core Results Indicator tags are assigned to active operations — this typically happens over the summer and determines which projects contribute to which indicators. <Cite>Results Handbook</Cite>
-          </p>
-          <p>
-            Once tagged, task teams file an achieved results figure for each indicator in the project's Implementation Status Report. These project-level figures are then aggregated first to country totals and then to the global portfolio figure. Rows identified as duplicates at the project level are excluded from the sum before it rolls up, so no beneficiary is counted more than once. <Cite>Results Handbook</Cite>
-          </p>
-          <p>
-            Before publication the Scorecard team runs validation checks — range tests, year-over-year outlier flags, and cross-indicator consistency reviews. Validated figures are published as the final Scorecard for that fiscal year. Client Context Indicators follow a separate path entirely: they are sourced directly from WDI and IMF databases and updated independently of the Implementation Status Report cycle. <Cite>Results Handbook</Cite>
-          </p>
+          <MethodsDirectAnswer>
+            Scorecard Results Indicators are compiled once a year. Task teams file achieved results in their project's Implementation Status Report; those figures are aggregated from project to country to global portfolio, with duplicate beneficiaries removed before each rollup. The annual reporting window typically runs July to December for the prior fiscal year.
+          </MethodsDirectAnswer>
+          <MethodsExpandableExplanation>
+            <p className="text-[13.5px] text-gray-700 leading-relaxed">
+              The process begins when Core Results Indicator tags are assigned to active operations — this typically happens over the summer and determines which projects contribute to which indicators. <Cite>Results Handbook</Cite>
+            </p>
+            <p className="text-[13.5px] text-gray-700 leading-relaxed">
+              Once tagged, task teams file an achieved results figure for each indicator in the project's Implementation Status Report. These project-level figures are then aggregated first to country totals and then to the global portfolio figure. Rows identified as duplicates at the project level are excluded from the sum before it rolls up, so no beneficiary is counted more than once. <Cite>Results Handbook</Cite>
+            </p>
+            <p className="text-[13.5px] text-gray-700 leading-relaxed">
+              Before publication the Scorecard team runs validation checks — range tests, year-over-year outlier flags, and cross-indicator consistency reviews. Validated figures are published as the final Scorecard for that fiscal year. Client Context Indicators follow a separate path entirely: they are sourced directly from WDI and IMF databases and updated independently of the ISR cycle. <Cite>Results Handbook</Cite>
+            </p>
+          </MethodsExpandableExplanation>
           <p className="text-[11px] text-gray-400">
             Source: Results Handbook — annual reporting cycle · FY25
           </p>
+          <MethodsNextAction>
+            If you need to check whether a specific project's results are captured in the Scorecard, start with the project's ISR and verify the CRI tag is assigned. If you believe there is an error in how your project's data is captured, use the escalation option below.
+          </MethodsNextAction>
+          <MethodsEscalation disabled={disabled} />
         </>
       )}
     </div>
@@ -1439,9 +2586,9 @@ function Cite({ children }: { children: React.ReactNode }) {
       display: "inline-flex", alignItems: "center",
       fontSize: 10.5, lineHeight: 1,
       padding: "2px 7px", borderRadius: 100,
-      border: "1px solid rgba(255,255,255,0.18)",
-      background: "rgba(255,255,255,0.07)",
-      color: "rgba(255,255,255,0.6)",
+      border: "1px solid var(--cite-border)",
+      background: "var(--cite-bg)",
+      color: "var(--cite-color)",
       fontWeight: 500, letterSpacing: "0.01em",
       verticalAlign: "middle", whiteSpace: "nowrap",
       marginLeft: 3,
@@ -1472,17 +2619,17 @@ function IndicatorMethodologyCard({ title, disabled = false }: { title: string; 
 
   return (
     <div className={`flex flex-col gap-4 ${disabled ? "opacity-90" : ""}`}>
-      <div className="flex flex-col gap-3 text-[13.5px] text-gray-700 leading-relaxed">
-        <p>
-          This indicator counts the unique number of people who received at least one IDA-financed health, nutrition, or population service during the fiscal year. <Cite>HNP Services methodology note</Cite> A person is counted once regardless of how many services they received — duplicate entries across operations are removed before the country total is calculated. <Cite>Results Handbook</Cite>
+      <MethodsDirectAnswer>
+        People Reached with HNP Services counts the unique number of people who received at least one IDA-financed health, nutrition, or population service during the fiscal year. A person counted under more than one project in the same country is recorded once. Infrastructure outputs, equipment grants, and health-worker training do not count as a service to a person.
+      </MethodsDirectAnswer>
+      <MethodsExpandableExplanation>
+        <p className="text-[13.5px] text-gray-700 leading-relaxed">
+          Services that qualify include primary care visits, maternal and child health touchpoints, immunisations, nutrition consultations, and disease-specific outreach. <Cite>HNP Services methodology note</Cite> Insurance-scheme enrolment does not count unless it directly corresponds to an individual receiving a service.
         </p>
-        <p>
-          Services that qualify include primary care visits, maternal and child health touchpoints, immunisations, nutrition consultations, and disease-specific outreach. <Cite>HNP Services methodology note</Cite> Infrastructure outputs such as clinic construction and equipment-only grants do not count as a service to a person. Health-worker training and insurance-scheme enrolment also do not count unless they directly correspond to an individual receiving a service.
-        </p>
-        <p>
+        <p className="text-[13.5px] text-gray-700 leading-relaxed">
           Project totals are first aggregated to country level, then summed to the global portfolio figure. <Cite>Results Handbook</Cite> Rows identified as duplicates at the project level are excluded before summing so that no individual is counted more than once in the global total. <Cite>Scorecard Metadata</Cite>
         </p>
-      </div>
+      </MethodsExpandableExplanation>
 
       <div className="flex flex-col gap-1">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">5-year reach (M people)</span>
@@ -1526,6 +2673,10 @@ function IndicatorMethodologyCard({ title, disabled = false }: { title: string; 
       <p className="text-[11px] text-gray-400">
         Source: HNP Services methodology note · FY25 reporting cycle
       </p>
+      <MethodsNextAction>
+        To see the country-level breakdown of HNP service achievement against FY25 targets, ask the Analytics Engine. For questions about whether a specific service type qualifies for this indicator — particularly edge cases not covered by the methodology note — use the escalation option below.
+      </MethodsNextAction>
+      <MethodsEscalation disabled={disabled} />
     </div>
   );
 }
@@ -1597,6 +2748,20 @@ const THOUGHT_STEPS_METHODS_COMPILATION: ThoughtStep[] = [
   { type: "filter",  text: "Extracting CRI tagging process — how indicators are assigned to operations",           detail: "Core Results Indicator tagging rules" },
   { type: "compute", text: "Mapping aggregation path — project row → country → global portfolio total",            detail: "Double_Counting_Flag applied at aggregation step" },
   { type: "analyze", text: "Separating Results compilation path from Client Context Indicator sourcing",           detail: "ISR vs WDI/IMF — distinct pipelines confirmed" },
+];
+
+const THOUGHT_STEPS_BENEFICIARY_GEO: ThoughtStep[] = [
+  { type: "search",  text: "Reading Social Safety Nets results · project-level country rows for FY2025",      detail: "CSC_RES_SOC_SAF_PROG · 244M aggregate" },
+  { type: "filter",  text: "Filtering to IDA countries with both achieved and expected country-level data",   detail: "38 countries with full achieved/expected pairs" },
+  { type: "compute", text: "Ranking countries by shortfall (expected − achieved) and grouping by FCS status", detail: "6 countries below 60% · 4 are FCS" },
+  { type: "analyze", text: "Checking for regional concentration — does coverage cluster in a few countries?",  detail: "Top 5 countries = 68% of global total" },
+];
+
+const THOUGHT_STEPS_SSN_YOY: ThoughtStep[] = [
+  { type: "search",  text: "Loading social safety net indicator data for FY24 and FY25 · country and project level", detail: "CSC_RES_SOC_SAF_PROG · 211 projects across 2 fiscal years" },
+  { type: "filter",  text: "Segmenting projects into three cohorts: FY24 only, both years, FY25 only", detail: "FY24 only: 121 · Both: 69 · FY25 only: 21" },
+  { type: "compute", text: "Computing cohort-level achieved beneficiaries and year-on-year change", detail: "Both-year cohort: 104.9M → 193.9M (+89.0M)" },
+  { type: "analyze", text: "Identifying top project drivers of the FY24–FY25 increase", detail: "P174484 (PK Crisis-Resilient) = 56.7M · largest single contributor" },
 ];
 
 const NARRATIVE_PLAN_STEPS: ThoughtStep[] = [
@@ -1676,12 +2841,14 @@ function ThoughtProcess({
   onComplete?: () => void;
 }) {
   const steps = customSteps ?? (
-    flow === "health-gap"            ? THOUGHT_STEPS_HEALTH           :
-    flow === "electricity-fcs"       ? THOUGHT_STEPS_ELECTRICITY      :
-    flow === "fy24-fy25-delta"       ? THOUGHT_STEPS_YOY              :
-    flow === "hnp-measurement"       ? THOUGHT_STEPS_HNP_METHOD       :
-    flow === "methods-taxonomy"      ? THOUGHT_STEPS_METHODS_TAXONOMY  :
+    flow === "health-gap"            ? THOUGHT_STEPS_HEALTH              :
+    flow === "electricity-fcs"       ? THOUGHT_STEPS_ELECTRICITY         :
+    flow === "analytics-engine"      ? THOUGHT_STEPS_YOY                 :
+    flow === "methods-measurement"   ? THOUGHT_STEPS_HNP_METHOD          :
+    flow === "methods-taxonomy"      ? THOUGHT_STEPS_METHODS_TAXONOMY    :
     flow === "methods-compilation"   ? THOUGHT_STEPS_METHODS_COMPILATION :
+    flow === "ssn-yoy"               ? THOUGHT_STEPS_SSN_YOY             :
+    flow === "beneficiary-geo"       ? THOUGHT_STEPS_BENEFICIARY_GEO     :
                                        THOUGHT_STEPS_AFRICA
   );
   const [visibleCount, setVisibleCount] = useState(0);
@@ -1804,9 +2971,6 @@ function NarrativePlanningMessage({
 
   return (
     <div className="flex items-start gap-3">
-      <div className="w-8 h-8 rounded-full bg-[#0288D1] flex items-center justify-center shrink-0 text-white text-[11px] font-bold">
-        SC
-      </div>
       <div className="flex-1 min-w-0 pt-1.5 flex flex-col gap-1.5">
         {/* Header */}
         <button
@@ -1868,9 +3032,6 @@ function NarrativePlanningMessage({
 function NarrativeGeneratingMessage({ generating }: { generating: boolean }) {
   return (
     <div className="flex items-start gap-3 narrative-content-enter">
-      <div className="w-8 h-8 rounded-full bg-[#0288D1] flex items-center justify-center shrink-0 text-white text-[11px] font-bold">
-        SC
-      </div>
       <div className="flex flex-col gap-2 pt-1">
         <p className="text-[13.5px] text-gray-700 leading-relaxed">
           Got it — generating the first draft of your narrative now.
@@ -1899,9 +3060,6 @@ function MakeChangesSuggestionsMessage() {
   ];
   return (
     <div className="flex items-start gap-3 narrative-content-enter">
-      <div className="w-8 h-8 rounded-full bg-[#0288D1] flex items-center justify-center shrink-0 text-white text-[11px] font-bold">
-        SC
-      </div>
       <div className="flex-1 min-w-0 pt-1 flex flex-col gap-2">
         <p className="text-[13.5px] text-gray-700 leading-relaxed">
           Sure — a few things you might want to change:
@@ -1920,12 +3078,95 @@ function MakeChangesSuggestionsMessage() {
 function CvUserBubble({ text }: { text: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [radius, setRadius] = useState(9999);
+  const { isDark } = useTheme();
   useEffect(() => {
     if (ref.current) setRadius(ref.current.offsetHeight > 44 ? 18 : 9999);
   }, [text]);
   return (
-    <div ref={ref} style={{ background: "rgba(100,116,139,0.35)", color: "rgba(226,232,240,0.95)", borderRadius: radius }} className="px-4 py-3 text-[14px] leading-relaxed">
+    <div
+      ref={ref}
+      style={{
+        background: isDark ? "rgba(100,116,139,0.35)" : "rgba(0,57,107,0.09)",
+        color: isDark ? "rgba(226,232,240,0.95)" : "#3D5166",
+        borderRadius: radius,
+      }}
+      className="px-4 py-3 text-[14px] leading-relaxed"
+    >
       {text}
+    </div>
+  );
+}
+
+/** Single follow-up turn rendered inside the sourceCard branch. */
+function FollowUpTurnBlock({ prompt, dark, sourceCard }: {
+  prompt: string;
+  dark: boolean;
+  sourceCard?: MomentumGroup;
+}) {
+  const [thoughtDone, setThoughtDone] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Delay ThoughtProcess mount by one frame so the user bubble animates in first
+  useEffect(() => {
+    const t = setTimeout(() => setMounted(true), 80);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Match the prompt to a row's insight by keyword overlap.
+  // Causal prompts ("why", "what caused", "explain") prefer whyInsight over structuredInsight.
+  const isCausal = /\bwhy\b|\bwhat caused\b|\bexplain\b|\bhow come\b/i.test(prompt);
+  const structuredInsight = (() => {
+    if (!sourceCard) return undefined;
+    const lp = prompt.toLowerCase();
+    for (const row of sourceCard.rows) {
+      const keywords = row.label.toLowerCase().split(/\s+/).filter((w) => w.length > 4);
+      if (keywords.some((kw) => lp.includes(kw))) {
+        return (isCausal && row.whyInsight) ? row.whyInsight : row.structuredInsight;
+      }
+    }
+    return sourceCard.structuredInsight;
+  })();
+
+  const flow = detectFlow(prompt);
+  const content = FLOW_CONTENT[flow];
+
+  return (
+    <div className="flex flex-col gap-6 pt-2">
+      <div className="self-end flex items-center gap-3 max-w-[85%]">
+        <CvUserBubble text={prompt} />
+        <div className="w-8 h-8 rounded-full bg-[#0288D1] flex items-center justify-center shrink-0 text-white text-[11px] font-bold">
+          JD
+</div>
+      </div>
+      <div className="flex items-start">
+        <div className="flex-1 min-w-0 flex flex-col gap-3">
+          {mounted && (
+            <ThoughtProcess flow={flow} onComplete={() => setThoughtDone(true)} />
+          )}
+          {thoughtDone && (
+            <div className="narrative-content-enter flex flex-col gap-3">
+              {structuredInsight ? (
+                <InsightComposerBlock insight={structuredInsight} dark={dark} />
+              ) : (
+                <>
+                  <div className={`text-[14px] font-semibold leading-snug ${dark ? "text-gray-100" : "text-gray-900"}`}>
+                    <StreamingText text={content.leadAnswer} wordDelay={18} />
+                  </div>
+                  <div className={`text-[13.5px] leading-relaxed ${dark ? "text-gray-300" : "text-gray-700"}`}>
+                    <StreamingText text={content.bodyText} wordDelay={8} />
+                  </div>
+                </>
+              )}
+              <div className="flex items-center gap-3 text-gray-400 mt-1">
+                <button className="hover:text-gray-700 transition-colors" aria-label="Copy"><IconCopySm size={16} /></button>
+                <span className="w-px h-4 bg-gray-200" />
+                <button className="hover:text-gray-700 transition-colors" aria-label="Thumbs up"><IconThumbUp size={16} /></button>
+                <button className="hover:text-gray-700 transition-colors" aria-label="Thumbs down"><IconThumbDown size={16} /></button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1938,7 +3179,7 @@ function ProceedMessage() {
     <div className="self-end flex items-center gap-3 max-w-[85%] narrative-content-enter">
       <CvUserBubble text="Proceed to create narrative" />
       <div className="w-8 h-8 rounded-full bg-[#0288D1] flex items-center justify-center shrink-0 text-white text-[11px] font-bold">
-        NT
+        JD
       </div>
     </div>
   );
@@ -1959,9 +3200,6 @@ function NarrativeReadyMessage() {
   const [open, setOpen] = useState(false);
   return (
     <div className="flex items-start gap-3 narrative-content-enter">
-      <div className="w-8 h-8 rounded-full bg-[#0288D1] flex items-center justify-center shrink-0 text-white text-[11px] font-bold">
-        SC
-      </div>
       <div className="flex-1 min-w-0 pt-1 flex flex-col gap-2">
         <p className="text-[13.5px] text-gray-700 leading-relaxed">
           Your draft is ready in the panel on the right. I&apos;ve baked in an{" "}
@@ -2095,9 +3333,6 @@ function QuoteThumb({ active }: { active: boolean }) {
 function VisualSupportMessage() {
   return (
     <div className="flex items-start gap-3 narrative-content-enter">
-      <div className="w-8 h-8 rounded-full bg-[#0288D1] flex items-center justify-center shrink-0 text-white text-[11px] font-bold">
-        SC
-      </div>
       <div className="flex-1 min-w-0 flex flex-col gap-2 pt-1">
         <p className="text-[13.5px] text-gray-700 leading-relaxed">
           You can add supporting visualizations — hero images, additional charts, or callout quotes — directly to any section of the draft. Look for the{" "}
@@ -2185,6 +3420,73 @@ function EditableTitle({
   );
 }
 
+function InsightComposerBlock({ insight, dark }: { insight: import("@/lib/mockData").InsightComposer; dark?: boolean }) {
+  const CONF_LABEL: Record<string, string> = {
+    HIGH:   "Well evidenced",
+    MEDIUM: "Partially evidenced",
+    LOW:    "Limited evidence",
+  };
+
+  // Split semicolon-separated citation string into individual source items
+  const sources = insight.citation.split(";").map((s) => s.trim()).filter(Boolean);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+      {/* Finding */}
+      <p style={{
+        margin: 0, fontSize: 14.5, fontWeight: 600, lineHeight: 1.6,
+        color: dark ? "rgba(255,255,255,0.92)" : "#0D1B26",
+      }}>
+        {insight.finding}
+      </p>
+
+      {/* Evidence bullets */}
+      <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
+        {insight.evidence.map((point, i) => (
+          <li key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <span style={{
+              width: 5, height: 5, borderRadius: "50%", flexShrink: 0, marginTop: 6,
+              background: dark ? "rgba(255,255,255,0.35)" : "#94A3B8",
+            }} />
+            <span style={{ fontSize: 13, lineHeight: 1.65, color: dark ? "rgba(255,255,255,0.70)" : "#374151" }}>
+              {point}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      {/* Confidence — plain language, italic */}
+      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.55, color: dark ? "rgba(255,255,255,0.45)" : "#9CA3AF" }}>
+        <span style={{ fontStyle: "italic" }}>{CONF_LABEL[insight.confidence] ?? "Partially evidenced"}</span>
+        {insight.confidenceNote ? ` — ${insight.confidenceNote}` : ""}
+      </p>
+
+      {/* Divider */}
+      <div style={{ borderTop: `1px solid ${dark ? "rgba(255,255,255,0.07)" : "#E5E7EB"}` }} />
+
+      {/* Citation — uses shared UsedSources component for consistency */}
+      <UsedSources sources={sources} />
+
+      {/* Narrative bridge — HIGH confidence only */}
+      {insight.confidence === "HIGH" && insight.narrativeBridge && (
+        <div style={{
+          borderRadius: 8, padding: "12px 14px",
+          background: dark ? "rgba(2,136,209,0.10)" : "#EFF6FF",
+          border: `1px solid ${dark ? "rgba(2,136,209,0.25)" : "#BFDBFE"}`,
+        }}>
+          <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "0.09em", color: dark ? "#38BDF8" : "#1D4ED8" }}>
+            Narrative Bridge
+          </span>
+          <p style={{ margin: "6px 0 0", fontSize: 13, lineHeight: 1.6, color: dark ? "rgba(255,255,255,0.72)" : "#1E40AF" }}>
+            {insight.narrativeBridge}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function UsedSources({ sources }: { sources: string[] }) {
   const [open, setOpen] = useState(false);
   return (
@@ -2256,29 +3558,31 @@ export default function ConversationView({
   preloadedAnswer = null,
   preloadedFollowUps = [],
   onConvertToNarrative,
+  followUpTurns = [],
+  onMaliStep,
 }: Props) {
   const flow = useMemo(() => detectFlow(prompt), [prompt]);
   const content = FLOW_CONTENT[flow];
   const isNarrativeMenuPrompt = useMemo(() => {
-    const narrativeMenu = ACTION_MENUS.find((m) => m.id === "narrative");
-    return narrativeMenu?.prompts.some((p) => p.prompt === prompt) ?? false;
+    // Match prompts from the "Build a Results Narrative" button OR the "Narrative Builder" module.
+    const menus = ACTION_MENUS.filter((m) => m.id === "narrative" || m.id === "narrative-builder");
+    return menus.some((m) => m.prompts.some((p) => p.prompt === prompt));
   }, [prompt]);
   const signals =
     flow === "health-gap"          ? HEALTH_RELATED_SIGNALS  :
     flow === "electricity-fcs"     ? ELECTRICITY_FCS_SIGNALS :
-    flow === "fy24-fy25-delta"     ? YOY_DELTA_SIGNALS       :
-    flow === "hnp-measurement"     ? HNP_METHOD_SIGNALS      :
+    flow === "analytics-engine"     ? YOY_DELTA_SIGNALS       :
+    flow === "methods-measurement"     ? HNP_METHOD_SIGNALS      :
     flow === "methods-taxonomy"    ? []                      :
     flow === "methods-compilation" ? []                      :
-    flow === "norway-donor"        ? []                      :
+    flow === "external-narrative"        ? []                      :
                                      RELATED_SIGNALS;
 
-  // Surface a prompt chip above the bar for narrative-menu prompts.
-  // Donor-attribution prompts get "Donor narrative"; others get "Convert into a narrative".
+  // Surface a prompt chip above the bar for narrative-menu prompts and all
+  // external-narrative flows (entry point to DonorNarrativeWizard).
   useEffect(() => {
     if (isNarrativeMenuPrompt && onWizardContextChipsChange) {
-      const label = flow === "norway-donor" ? "Create a Narrative" : "Convert into a narrative";
-      onWizardContextChipsChange([{ id: "convert-narrative", label }]);
+      onWizardContextChipsChange([{ id: "convert-narrative", label: "Convert into a narrative" }]);
       return () => onWizardContextChipsChange([]);
     }
   }, [isNarrativeMenuPrompt, flow, onWizardContextChipsChange]);
@@ -2351,8 +3655,8 @@ export default function ConversationView({
 
   return (
     <div
-      className={`flex flex-col ${embedded ? "h-full" : "h-screen"} ${dark ? "cv-dark" : "bg-white"} ${mapMode ? "cv-map-mode" : ""} ${suppressTransition ? "" : "transition-[padding] duration-500 ease-in-out"}`}
-      style={{ paddingRight: panelOpen ? panelWidth : 0, ...(dark && mapMode ? { background: "transparent" } : {}) }}
+      className={`flex flex-col ${embedded ? "h-full" : "h-screen"} ${dark ? "cv-dark" : (mapMode ? "bg-transparent" : "bg-white")} ${mapMode ? "cv-map-mode" : ""} ${suppressTransition ? "" : "transition-[padding] duration-500 ease-in-out"}`}
+      style={{ paddingRight: panelOpen ? panelWidth : 0, ...((dark || !dark) && mapMode ? { background: "transparent" } : {}) }}
     >
       {/* 3-column grid keeps the title at the geometric viewport center
           regardless of left logo width or right action group width.
@@ -2502,10 +3806,12 @@ export default function ConversationView({
                 ))}
               </div>
 
-              {/* Composed insight paragraph */}
-              {sourceCard.insight && (
+              {/* Composed insight — structured Insights Composer format when available */}
+              {sourceCard.structuredInsight ? (
+                <InsightComposerBlock insight={sourceCard.structuredInsight} dark={dark} />
+              ) : sourceCard.insight ? (
                 <p className="text-[13.5px] text-gray-600 leading-relaxed m-0">{sourceCard.insight}</p>
-              )}
+              ) : null}
 
               {/* Copy / feedback row */}
               <div className="flex items-center gap-3 text-gray-400">
@@ -2537,6 +3843,11 @@ export default function ConversationView({
                   </div>
                 </div>
               )}
+
+              {/* Continued follow-up turns — conversation grows without resetting */}
+              {followUpTurns.map((turnPrompt, idx) => (
+                <FollowUpTurnBlock key={idx} prompt={turnPrompt} dark={dark} sourceCard={sourceCard} />
+              ))}
             </div>
           ) : (
             <>
@@ -2545,8 +3856,8 @@ export default function ConversationView({
                 <div className="self-end flex items-center gap-3 max-w-[85%] narrative-content-enter">
                   <CvUserBubble text={prompt} />
                   <div className="w-8 h-8 rounded-full bg-[#0288D1] flex items-center justify-center shrink-0 text-white text-[11px] font-bold">
-                    NT
-                  </div>
+                    JD
+          </div>
                 </div>
               )}
 
@@ -2555,10 +3866,7 @@ export default function ConversationView({
                   the user can follow up via the normal input. Skips the mock
                   thought-process + body entirely. */}
               {!narrativeDirect && narrativePhase === "idle" && preloadedAnswer && mountStage >= 1 && (
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[#0288D1] flex items-center justify-center shrink-0 text-white text-[11px] font-bold">
-                    SC
-                  </div>
+                <div className="flex items-start">
                   <div className="flex-1 min-w-0 flex flex-col gap-4">
                     <div className="text-[14px] text-gray-800 leading-relaxed whitespace-pre-wrap">
                       <StreamingText text={preloadedAnswer} wordDelay={18} />
@@ -2601,12 +3909,16 @@ export default function ConversationView({
                 <ThoughtProcess flow={flow} onComplete={() => setThoughtDone(true)} />
               )}
 
+              {/* Beneficiary-geo: self-contained multi-step flow */}
+              {!narrativeDirect && !preloadedAnswer && thoughtDone && flow === "beneficiary-geo" && (
+                <div className="narrative-content-enter">
+                  <BeneficiaryGeoFlow disabled={showBlock1} onMaliStep={onMaliStep} />
+                </div>
+              )}
+
               {/* Assistant response — appears after thought process collapses */}
-              {!narrativeDirect && !(showBlock1 && narrativeVariant !== "donor-priorities") && !preloadedAnswer && thoughtDone && (
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[#0288D1] flex items-center justify-center shrink-0 text-white text-[11px] font-bold">
-                    SC
-                  </div>
+              {!narrativeDirect && !(showBlock1 && narrativeVariant !== "donor-priorities") && !preloadedAnswer && thoughtDone && flow !== "beneficiary-geo" && (
+                <div className="flex items-start">
                   <div className="flex-1 min-w-0 flex flex-col gap-4">
                     <p className="text-[14.5px] font-semibold text-gray-900 leading-relaxed">
                       <StreamingText
@@ -2622,10 +3934,12 @@ export default function ConversationView({
                       style={{ opacity: leadDone ? 1 : 0 }}
                     >
                       {/* Comparative Analytics Engine response — replaces
-                          chart + body for fy24-fy25-delta; other flows keep
+                          chart + body for analytics-engine; other flows keep
                           the standard body → chart → sources layout. */}
-                      {flow === "fy24-fy25-delta" ? (
+                      {flow === "analytics-engine" ? (
                         <ComparativeAnalyticsResponse disabled={showBlock1} leadDone={leadDone} />
+                      ) : flow === "ssn-yoy" ? (
+                        <SsnCohortResponse disabled={showBlock1} leadDone={leadDone} />
                       ) : (
                         <>
                           <p className="text-[13.5px] text-gray-700 leading-relaxed">
@@ -2641,14 +3955,12 @@ export default function ConversationView({
                               caption="Health Services results · project-level data · FY2025"
                               disabled={showBlock1}
                             />
-                          ) : flow === "hnp-measurement" ? (
+                          ) : flow === "methods-measurement" ? (
                             <IndicatorMethodologyCard title={content.chartTitle} disabled={showBlock1} />
                           ) : flow === "methods-taxonomy" ? (
                             <MethodsAdvisorCard flow="methods-taxonomy" disabled={showBlock1} />
                           ) : flow === "methods-compilation" ? (
                             <MethodsAdvisorCard flow="methods-compilation" disabled={showBlock1} />
-                          ) : flow === "norway-donor" ? (
-                            <DonorAttributionStats disabled={showBlock1} />
                           ) : (
                             <PovertyChart title={content.chartTitle} disabled={showBlock1} />
                           )}
@@ -2677,6 +3989,7 @@ export default function ConversationView({
                             <button
                               key={q}
                               type="button"
+                              onClick={() => onFollowUpClick?.(q)}
                               className="flex items-center justify-between py-3.5 border-b border-gray-200 text-[13.5px] text-gray-700 hover:text-gray-900 group transition-colors text-left"
                             >
                               <span>{q}</span>
@@ -2686,11 +3999,6 @@ export default function ConversationView({
                         </div>
                       </div>
 
-                      {flow === "norway-donor" && !showBlock1 && (
-                        <p className="text-[13.5px] text-gray-500 leading-relaxed mt-1">
-                          I can create a structured donor narrative for you — showing how Norway's contribution maps to real outcomes across health, education, and social protection.
-                        </p>
-                      )}
 
                     </div>
                   </div>
@@ -2727,8 +4035,8 @@ export default function ConversationView({
                 <div className="self-end flex items-center gap-3 max-w-[85%] narrative-content-enter">
                   <CvUserBubble text={narrativeVariant === "donor-priorities" ? "Create a Narrative" : "Build a Results Narrative"} />
                   <div className="w-8 h-8 rounded-full bg-[#0288D1] flex items-center justify-center shrink-0 text-white text-[11px] font-bold">
-                    NT
-                  </div>
+                    JD
+          </div>
                 </div>
               )}
               {showBlock1 && !narrativeDirect && narrativeVariant !== "donor-priorities" && (

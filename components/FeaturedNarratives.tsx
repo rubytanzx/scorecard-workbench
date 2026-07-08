@@ -158,7 +158,7 @@ export default function FeaturedNarratives({ onOpenInfographic }: Props = {}) {
         <h2
           style={{
             margin: 0,
-            color: "rgba(255, 255, 255, 0.95)",
+            color: "var(--section-title)",
             fontFamily: F,
             fontSize: 26,
             fontWeight: 300,
@@ -176,7 +176,7 @@ export default function FeaturedNarratives({ onOpenInfographic }: Props = {}) {
             gap: 4,
             fontSize: 13,
             fontWeight: 500,
-            color: "rgba(255,255,255,0.65)",
+            color: "var(--section-link)",
             fontFamily: F,
             textDecoration: "none",
           }}

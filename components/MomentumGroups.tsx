@@ -1,5 +1,6 @@
 
 import { momentumGroups, type MomentumGroup, type MomentumRow } from "@/lib/mockData";
+import { IconChevronRight } from "@tabler/icons-react";
 
 const F = "'Open Sans', sans-serif";
 
@@ -10,22 +11,11 @@ function parseNum(s: string | undefined): number {
   return m ? parseFloat(m[0]) : 0;
 }
 
-const CARD_BG: Record<MomentumGroup["id"], string> = {
-  accelerating: "#0F766E",
-  slowing:      "#C2410C",
-  emerging:     "#1E1B6E",
-};
-
-const GRADIENT_BORDER: Record<MomentumGroup["id"], string> = {
-  accelerating: "linear-gradient(160deg, #5eead4 0%, #22d3ee 35%, transparent 60%)",
-  slowing:      "linear-gradient(160deg, #fb923c 0%, #f97316 35%, transparent 60%)",
-  emerging:     "linear-gradient(160deg, #a78bfa 0%, #818cf8 35%, transparent 60%)",
-};
 
 const BAR_COLOR: Record<MomentumGroup["id"], string> = {
-  accelerating: "#34D399",
-  slowing:      "#FB923C",
-  emerging:     "#818CF8",
+  accelerating: "#198754",
+  slowing:      "#fd7e14",
+  emerging:     "#0d6efd",
 };
 
 interface Props {
@@ -50,11 +40,11 @@ export default function MomentumGroups({ onCardClick, onRowClick }: Props = {}) 
           --mg-bar-color: #FFFFFF;
           position: relative;
           overflow: hidden;
-          background: rgba(8, 18, 30, 0.82);
+          background: var(--card-bg);
           backdrop-filter: blur(20px);
           -webkit-backdrop-filter: blur(20px);
-          border: none;
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+          border: 1px solid var(--card-border);
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.20), inset 0 1px 0 rgba(255, 255, 255, 0.05);
           border-radius: 15px;
           padding: 22px 24px 20px;
           display: flex;
@@ -120,8 +110,8 @@ export default function MomentumGroups({ onCardClick, onRowClick }: Props = {}) 
         .mg-card-row-label {
           transition: color 500ms cubic-bezier(0.22, 1, 0.36, 1);
         }
-        .mg-card-title     { color: rgba(255,255,255,0.95); }
-        .mg-card-row-label { color: rgba(255,255,255,0.72); }
+        .mg-card-title     { color: var(--text-1); }
+        .mg-card-row-label { color: var(--text-2); }
         .mg-card:hover .mg-card-title,
         .mg-card:focus-within .mg-card-title { color: #FFFFFF; }
         .mg-card:hover .mg-card-row-label,
@@ -132,7 +122,7 @@ export default function MomentumGroups({ onCardClick, onRowClick }: Props = {}) 
           width: 4px;
           height: 38px;
           border-radius: 2px;
-          background: rgba(255,255,255,0.12);
+          background: var(--mg-vbar-track-bg);
           position: relative;
           overflow: hidden;
           flex-shrink: 0;
@@ -140,7 +130,7 @@ export default function MomentumGroups({ onCardClick, onRowClick }: Props = {}) 
         }
         .mg-card:hover .mg-vbar-track,
         .mg-card:focus-within .mg-vbar-track {
-          background: rgba(255,255,255,0.2);
+          background: transparent;
         }
         .mg-vbar-fill {
           position: absolute;
@@ -158,7 +148,7 @@ export default function MomentumGroups({ onCardClick, onRowClick }: Props = {}) 
         .mg-val-achieved {
           font-size: 17px;
           font-weight: 700;
-          color: rgba(255,255,255,0.95);
+          color: var(--mg-val-achieved);
           line-height: 1;
           transition: color 500ms ease;
         }
@@ -167,13 +157,13 @@ export default function MomentumGroups({ onCardClick, onRowClick }: Props = {}) 
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: rgba(255,255,255,0.45);
+          color: var(--mg-val-label);
           transition: color 500ms ease;
           margin-left: 3px;
         }
         .mg-val-expected {
           font-size: 11px;
-          color: rgba(255,255,255,0.35);
+          color: var(--mg-val-expected);
           margin-top: 3px;
           transition: color 500ms ease;
         }
@@ -186,7 +176,6 @@ export default function MomentumGroups({ onCardClick, onRowClick }: Props = {}) 
 
         /* Row divider */
         .mg-card-row {
-          --mg-row-divider: rgba(255,255,255,0.10);
           border-bottom: 1px solid var(--mg-row-divider);
           transition: border-color 500ms ease, background 0.14s ease;
           border-radius: 6px;
@@ -194,7 +183,7 @@ export default function MomentumGroups({ onCardClick, onRowClick }: Props = {}) 
         .mg-card-row:last-child { border-bottom: none; }
         .mg-card:hover .mg-card-row,
         .mg-card:focus-within .mg-card-row {
-          --mg-row-divider: rgba(255,255,255,0.18);
+          border-bottom-color: var(--mg-row-divider-hover);
         }
         .mg-card-row-clickable {
           cursor: pointer;
@@ -230,24 +219,26 @@ export default function MomentumGroups({ onCardClick, onRowClick }: Props = {}) 
           align-items: center;
           gap: 6px;
           padding: 6px 12px;
-          border: 1px solid rgba(255,255,255,0.22);
+          border: 1px solid var(--mg-prompt-border);
           border-radius: 999px;
           cursor: pointer;
           font-family: 'Open Sans', sans-serif;
           font-size: 12px;
           font-weight: 500;
           line-height: 1.3;
-          background: rgba(255,255,255,0.1);
-          color: rgba(255,255,255,0.85);
+          background: var(--mg-prompt-bg);
+          color: var(--mg-prompt-color);
           transition: background-color 140ms ease, border-color 500ms ease;
         }
         .mg-card:hover .mg-prompt,
         .mg-card:focus-within .mg-prompt {
           border-color: rgba(255,255,255,0.6);
           background: rgba(255,255,255,0.18);
+          color: rgba(255,255,255,0.90);
         }
         .mg-prompt:hover {
-          background: rgba(255,255,255,0.22);
+          background: var(--mg-prompt-hover-bg);
+          border-color: var(--mg-prompt-hover-border);
         }
       `}</style>
 
@@ -255,7 +246,7 @@ export default function MomentumGroups({ onCardClick, onRowClick }: Props = {}) 
         <h2
           style={{
             margin: 0,
-            color: "rgba(255, 255, 255, 0.95)",
+            color: "var(--section-title)",
             fontFamily: F,
             fontSize: 26,
             fontWeight: 300,
@@ -266,11 +257,11 @@ export default function MomentumGroups({ onCardClick, onRowClick }: Props = {}) 
           Latest Indicator Movements
         </h2>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.40)", fontFamily: F }}>
+          <span style={{ fontSize: 12.5, color: "var(--section-meta)", fontFamily: F }}>
             Updated Jun 2025
           </span>
-          <a href="#" style={{ fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.65)", fontFamily: F, textDecoration: "none" }}>
-            View all →
+          <a href="#" style={{ fontSize: 13, fontWeight: 500, color: "var(--section-link)", fontFamily: F, textDecoration: "none" }}>
+            View all <IconChevronRight size={13} style={{ display: "inline", verticalAlign: "middle" }} />
           </a>
         </div>
       </div>
@@ -278,14 +269,13 @@ export default function MomentumGroups({ onCardClick, onRowClick }: Props = {}) 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {momentumGroups.map((g) => {
           const barColor = BAR_COLOR[g.id];
-          const borderGradient = GRADIENT_BORDER[g.id];
           return (
-            <div
+            <article
               key={g.id}
+              className="mg-card"
               style={{
-                padding: "1px",
-                borderRadius: 16,
-                background: borderGradient,
+                ["--mg-card-color" as string]: g.id === "accelerating" ? "#059669" : barColor,
+                ["--mg-bar-color" as string]: barColor,
                 cursor: onCardClick ? "pointer" : "default",
                 height: "100%",
               }}
@@ -300,13 +290,6 @@ export default function MomentumGroups({ onCardClick, onRowClick }: Props = {}) 
               }}
               aria-label={onCardClick ? `Open conversation about ${g.title}` : undefined}
             >
-            <article
-              className="mg-card"
-              style={{
-                ["--mg-card-color" as string]: g.id === "accelerating" ? "#059669" : barColor,
-                ["--mg-bar-color" as string]: barColor,
-              }}
-            >
               <span className="mg-card-overlay" aria-hidden="true" />
               <div className="mg-card-content">
                 <div className="mg-card-header">
@@ -320,11 +303,11 @@ export default function MomentumGroups({ onCardClick, onRowClick }: Props = {}) 
                   {g.rows.map((r) => {
                     const achieved = parseNum(r.achieved);
                     const expected = parseNum(r.expected);
-                    // Expected bar is always full height; achieved is relative to expected.
-                    // Clamp achieved to [10, 92] so the gap is always legible.
-                    const rawPct = expected > 0 ? (achieved / expected) * 100 : 100;
-                    const achievedPct = Math.min(Math.max(rawPct, 10), 92);
-                    const expectedPct = 100;
+                    // Both bars are relative to whichever is larger — the taller one = 100%.
+                    // Clamp minimum to 10% so neither bar disappears entirely.
+                    const maxVal = Math.max(achieved, expected > 0 ? expected : achieved);
+                    const achievedPct = maxVal > 0 ? Math.max(Math.round((achieved / maxVal) * 100), 10) : 100;
+                    const expectedPct = expected > 0 ? Math.max(Math.round((expected / maxVal) * 100), 10) : 0;
                     return (
                       <li
                         key={r.label}
@@ -350,12 +333,12 @@ export default function MomentumGroups({ onCardClick, onRowClick }: Props = {}) 
                         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                           <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 38 }}>
                             {/* Achieved bar */}
-                            <div style={{ width: 4, height: 38, borderRadius: 2, background: "rgba(255,255,255,0.12)", position: "relative", overflow: "hidden", flexShrink: 0 }}>
+                            <div style={{ width: 4, height: 38, borderRadius: 2, background: "transparent", position: "relative", overflow: "hidden", flexShrink: 0 }}>
                               <div className="mg-vbar-fill" style={{ height: `${achievedPct}%`, opacity: g.id === "slowing" ? 0.55 : 1 }} />
                             </div>
                             {/* Expected bar */}
                             {r.expected && (
-                              <div style={{ width: 4, height: `${Math.min(expectedPct, 100)}%`, borderRadius: 2, background: "rgba(255,255,255,0.30)", flexShrink: 0 }} />
+                              <div style={{ width: 4, height: `${Math.min(expectedPct, 100)}%`, borderRadius: 2, background: "var(--mg-expected-bar-bg)", flexShrink: 0 }} />
                             )}
                           </div>
                           <div style={{ display: "flex", flexDirection: "column" }}>
@@ -374,7 +357,6 @@ export default function MomentumGroups({ onCardClick, onRowClick }: Props = {}) 
                 </ul>
               </div>
             </article>
-            </div>
           );
         })}
       </div>

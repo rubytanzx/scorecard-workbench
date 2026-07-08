@@ -1,5 +1,5 @@
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   IconSparkles, IconX, IconArrowUp, IconPlus,
   IconPaperclip, IconPhoto, IconPlugConnected,
@@ -18,6 +18,7 @@ import InfographicPanel from "@/components/conversation/InfographicPanel";
 import SkeletonPreviewPanel from "@/components/conversation/SkeletonPreviewPanel";
 import { detectFlow } from "@/components/conversation/ConversationView";
 import { type NarrativeSkeleton } from "@/components/conversation/NarrativeSkeletons";
+import { type SubnationalPoint } from "@/components/D3Globe";
 import { fetchMatchedSkeletons } from "@/lib/narrativeApi";
 import type { NarrativeBuilderResult, NarrativeMeta } from "@/components/conversation/NarrativeBuilderWizard";
 import type { ChallengeSet } from "@/lib/challengeData";
@@ -36,7 +37,8 @@ import FeaturedNarratives from "@/components/FeaturedNarratives";
 import CounterIntuitiveFindings from "@/components/CounterIntuitiveTextCard";
 import OutcomeAreaGrid from "@/components/SystemPatternTile";
 
-import { indicators, secondaryStories, hnpGeoHint, norwayGeoHint, type GeoCountryDetail, type MomentumRow } from "@/lib/mockData";
+import { useTheme } from "@/contexts/ThemeContext";
+import { indicators, secondaryStories, hnpGeoHint, norwayGeoHint, benefGeoHint, type GeoCountryDetail, type MomentumRow } from "@/lib/mockData";
 import LoadingScreen from "@/components/LoadingScreen";
 import D3Globe from "@/components/D3Globe";
 import FlatMapOverlay from "@/components/FlatMapOverlay";
@@ -192,7 +194,66 @@ export type NarrativePhase =
 
 export type InteractiveElement = "map" | "charts" | "tables" | "timeline";
 
+// Mali cercle SSN beneficiary points (lon, lat)
+const MALI_CERCLE_POINTS: SubnationalPoint[] = [
+  { name: "Ségou",      lon: -6.27, lat: 13.45, r: 9,   color: "#3B82F6", label: "Ségou 52K",    note: "Cercle de Ségou · 52,000 SSN beneficiaries · highest absolute reach in Mali",
+    detail: { rows: [["Cercle", "Ségou"], ["Region", "Ségou"], ["Regional MPM (2021)", "62.4%"], ["Population", "512,890"], ["Achieved beneficiaries", "52,000"], ["Expected beneficiaries", "68,000"], ["% of population reached", "10.1%"]], project: { name: "Social Safety Net & Youth Inclusion", id: "P161380", achieved: 52000, expected: 68000, status: "Active" } } },
+  { name: "Kolokani",   lon: -8.03, lat: 13.58, r: 7,   color: "#3B82F6", label: "Kolokani 38K", note: "Cercle de Kolokani · 38,000 SSN beneficiaries · strong cash transfer coverage",
+    detail: { rows: [["Cercle", "Kolokani"], ["Region", "Koulikoro"], ["Regional MPM (2021)", "58.1%"], ["Population", "289,120"], ["Achieved beneficiaries", "38,000"], ["Expected beneficiaries", "48,000"], ["% of population reached", "13.1%"]], project: { name: "Social Safety Net & Youth Inclusion", id: "P161380", achieved: 38000, expected: 48000, status: "Active" } } },
+  { name: "Youwarou",   lon: -4.03, lat: 15.23, r: 8,   color: "#7C3AED", label: "Youwarou ★",   note: "Cercle de Youwarou · 31,887 SSN beneficiaries · Niger River Inland Delta",
+    detail: { rows: [["Cercle", "Youwarou"], ["Region", "Mopti"], ["Regional MPM (2021)", "70.4%"], ["Population", "133,759"], ["Achieved beneficiaries", "31,887"], ["Expected beneficiaries", "41,584"], ["% of population reached", "23.8%"]], indicators: ["SOC", "EDU", "HEA", "CLIM", "WASH", "TRANS", "DIG", "GEN", "FIN", "DISP"], project: { name: "Mali Drylands Development Project", id: "P164052", achieved: 31887, expected: 41584, status: "Active" } } },
+  { name: "Bamako",     lon: -8.00, lat: 12.65, r: 3.5, color: "#9CA3AF", note: "Bamako (national capital) · SSN programme coordination hub · urban beneficiaries included in national total" },
+  { name: "Mopti",      lon: -4.20, lat: 14.50, r: 3,   color: "#9CA3AF", note: "Mopti region centre · transit point for northern programme delivery · moderate SSN presence" },
+  { name: "Tombouctou", lon: -3.00, lat: 16.77, r: 3,   color: "#9CA3AF", note: "Tombouctou · limited SSN coverage due to access constraints · flagged as priority gap area" },
+  { name: "Gao",        lon:  0.00, lat: 16.27, r: 3,   color: "#9CA3AF", note: "Gao · conflict-affected zone · SSN delivery constrained by insecurity · coverage gap identified" },
+];
+
+// Mali poverty gap vs beneficiary coverage points
+const MALI_POVERTY_POINTS: SubnationalPoint[] = [
+  // High poverty / low coverage (brown)
+  { name: "Kidal",          lon:  1.40, lat: 18.44, r: 9, color: "#92400E", label: "Kidal",       note: "Kidal · poverty headcount ~72% · near-zero SSN reach · severe insecurity blocks programme delivery" },
+  { name: "Gao",            lon:  0.00, lat: 16.27, r: 8, color: "#92400E", label: "Gao",         note: "Gao · poverty headcount ~64% · limited SSN presence · armed group activity restricts IDA operations" },
+  { name: "Tombouctou",     lon: -3.00, lat: 16.77, r: 7, color: "#92400E", label: "Tombouctou",  note: "Tombouctou · poverty headcount ~61% · low beneficiary concentration despite high need · logistics gap" },
+  { name: "Ménaka",         lon:  2.40, lat: 15.92, r: 6, color: "#92400E",                        note: "Ménaka · high poverty · effectively no IDA SSN coverage · conflict and access barriers" },
+  { name: "Ansongo",        lon:  0.52, lat: 15.66, r: 5, color: "#92400E",                        note: "Ansongo · elevated poverty · minimal SSN reach · part of the northeastern coverage gap cluster" },
+  // SSN reach (blue) — detail shown on click
+  { name: "Youwarou",  lon: -4.03, lat: 15.23, r: 10, color: "#1D4ED8", label: "Youwarou",
+    detail: { rows: [["Cercle", "Youwarou"], ["Region", "Mopti"], ["Population", "133,759"], ["Beneficiaries reached", "31,887"], ["% of population reached", "23.8%"]] } },
+  { name: "Ségou",     lon: -6.27, lat: 13.45, r: 11, color: "#1D4ED8", label: "Ségou",
+    detail: { rows: [["Cercle", "Ségou"], ["Region", "Ségou"], ["Population", "512,890"], ["Beneficiaries reached", "52,000"], ["% of population reached", "10.1%"]] } },
+  { name: "Kolokani",  lon: -8.03, lat: 13.58, r: 8,  color: "#1D4ED8", label: "Kolokani",
+    detail: { rows: [["Cercle", "Kolokani"], ["Region", "Koulikoro"], ["Population", "289,120"], ["Beneficiaries reached", "38,000"], ["% of population reached", "13.1%"]] } },
+  { name: "Bamako",    lon: -8.00, lat: 12.65, r: 7,  color: "#1D4ED8", label: "Bamako",
+    detail: { rows: [["City", "Bamako"], ["Region", "Koulikoro"], ["Population", "~2,500,000"], ["Beneficiaries reached", "~210,000"], ["% of population reached", "8.4%"]] } },
+  { name: "Mopti",     lon: -4.20, lat: 14.50, r: 6,  color: "#1D4ED8", label: "Mopti",
+    detail: { rows: [["Cercle", "Mopti"], ["Region", "Mopti"], ["Population", "~320,000"], ["Beneficiaries reached", "~39,700"], ["% of population reached", "12.4%"]] } },
+  { name: "Kayes",     lon: -11.44, lat: 14.44, r: 5, color: "#1D4ED8", label: "Kayes",
+    detail: { rows: [["Cercle", "Kayes"], ["Region", "Kayes"], ["Population", "~430,000"], ["Beneficiaries reached", "~42,100"], ["% of population reached", "9.8%"]] } },
+];
+
+// Regional poverty bubbles — sized by estimated # multidim. poor (sqrt-scaled), coloured by rate
+const MALI_REGION_POVERTY_CIRCLES: SubnationalPoint[] = [
+  { name: "Kayes Region",      lon: -11.40, lat: 14.45, r: 16, kind: "region", color: "#D97706", label: "Kayes",
+    detail: { rows: [["Region","Kayes"],["Poverty rate","58%"],["Population","~2.4M"],["Est. multidim. poor","~1.4M"],["IDA SSN reach","~42,100 (3%)"]] } },
+  { name: "Koulikoro Region",  lon:  -7.55, lat: 13.37, r: 17, kind: "region", color: "#C26B10", label: "Koulikoro",
+    detail: { rows: [["Region","Koulikoro"],["Poverty rate","58%"],["Population","~2.7M"],["Est. multidim. poor","~1.6M"],["IDA SSN reach","~248,000 (9%)"]] } },
+  { name: "Ségou Region",      lon:  -6.27, lat: 13.45, r: 18, kind: "region", color: "#B45309", label: "Ségou",
+    detail: { rows: [["Region","Ségou"],["Poverty rate","62%"],["Population","~2.7M"],["Est. multidim. poor","~1.7M"],["IDA SSN reach","~52,000 (3%)"]] } },
+  { name: "Mopti Region",      lon:  -4.19, lat: 14.47, r: 18, kind: "region", color: "#92400E", label: "Mopti",
+    detail: { rows: [["Region","Mopti"],["Poverty rate","70%"],["Population","~2.4M"],["Est. multidim. poor","~1.7M"],["IDA SSN reach","~71,600 (3%)"]] } },
+  { name: "Tombouctou Region", lon:  -3.00, lat: 20.00, r: 11, kind: "region", color: "#7C3810", label: "Tombouctou",
+    detail: { rows: [["Region","Tombouctou"],["Poverty rate","71%"],["Population","~0.8M"],["Est. multidim. poor","~570K"],["IDA SSN reach","Near zero — logistics & insecurity"]] } },
+  { name: "Gao Region",        lon:   0.00, lat: 16.27, r:  9, kind: "region", color: "#6B2C08", label: "Gao",
+    detail: { rows: [["Region","Gao"],["Poverty rate","74%"],["Population","~0.5M"],["Est. multidim. poor","~370K"],["IDA SSN reach","Near zero — armed group activity"]] } },
+  { name: "Kidal Region",      lon:   1.40, lat: 18.44, r:  6, kind: "region", color: "#5C1A00", label: "Kidal",
+    detail: { rows: [["Region","Kidal"],["Poverty rate","81%"],["Population","~67K"],["Est. multidim. poor","~54K"],["IDA SSN reach","Zero — no operational presence"]] } },
+];
+
+// Mali centre longitude for globe rotation (~-2° lon centres Mali on the globe)
+const MALI_CENTER_LON = 2; // rot = -lon → -(-2) = 2
+
 export default function HomePage() {
+  const { isDark } = useTheme();
   const { isReady, progress } = usePageReady();
   const [modalStory, setModalStory] = useState<(typeof secondaryStories)[0] | null>(null);
   const [aiChatOpen, setAiChatOpen] = useState(false);
@@ -208,17 +269,21 @@ export default function HomePage() {
     setConversationPrompt("");
     setRightPane(null);
     setGlobeTooltip(null);
+    setGlobeSnPopup(null);
     setFlatMapOpen(false);
     setMapCollapsed(false);
     setConversationGeoHint(null);
     setActiveRowData(null);
     setMapViewMode("achieved");
+    setCurrentFlow(null);
+    setMaliSubnationalStep(null);
     if (typeof window !== "undefined") {
       window.history.pushState({ view: "home" }, "", "/");
     }
   };
   const [conversationPrompt, setConversationPrompt] = useState("");
   const [conversationFollowUps, setConversationFollowUps] = useState<string[]>([]);
+  const [conversationFollowUpTurns, setConversationFollowUpTurns] = useState<string[]>([]);
   const [conversationSourceCard, setConversationSourceCard] = useState<import("@/lib/mockData").MomentumGroup | null>(null);
   const [activeRowData, setActiveRowData] = useState<MomentumRow | null>(null);
   const [mapViewMode, setMapViewMode] = useState<"achieved" | "expected">("achieved");
@@ -233,6 +298,8 @@ export default function HomePage() {
     title: string;
     color: string;
   } | null>(null);
+  const [maliSubnationalStep, setMaliSubnationalStep] = useState<"cercle" | "poverty" | null>(null);
+  const [currentFlow, setCurrentFlow] = useState<string | null>(null);
   const [promptValue, setPromptValue] = useState("");
   const [guidanceReplyLabel, setGuidanceReplyLabel] = useState<string | null>(null);
   const promptInputRef = useRef<HTMLInputElement>(null);
@@ -314,9 +381,9 @@ export default function HomePage() {
   // open a confirm dialog instead of regenerating immediately. null = no
   // dialog open; otherwise the kind being asked about.
   const [regenerateConfirm, setRegenerateConfirm] = useState<string | null>(null);
-  const [homeScrolled, setHomeScrolled] = useState(false);
   const homeScrollRef = useRef<HTMLDivElement>(null);
   const heroSentinelRef = useRef<HTMLDivElement>(null);
+  const [homeScrolled, setHomeScrolled] = useState(false);
   // Stored handle for the post-confirm animation delay so future readers
   // know it's intentional and can cancel if navigation patterns change.
   const narrativeConfirmTimerRef = useRef<number | null>(null);
@@ -324,17 +391,26 @@ export default function HomePage() {
   const [globeH, setGlobeH] = useState(0);
   const globeBlurRef = useRef<HTMLDivElement>(null);
   const [globeTooltip, setGlobeTooltip] = useState<{ name: string; note: string | null; x: number; y: number } | null>(null);
+  const [globeSnPopup, setGlobeSnPopup] = useState<{ pt: SubnationalPoint; x: number; y: number } | null>(null);
   const [flatMapOpen, setFlatMapOpen] = useState(false);
   const [mapCollapsed, setMapCollapsed] = useState(false);
   const [dividerHovered, setDividerHovered] = useState(false);
   const [splitPercent, setSplitPercent] = useState(52);
   const splitDragRef = useRef<{ startX: number; startPct: number } | null>(null);
+  // Stable reference: center Mali in the visible right-panel area, not the full VB width
+  const maliCentreOn = useMemo(
+    () => maliSubnationalStep !== null
+      ? { lon: -2, lat: 17, zoom: 3.5, visibleOffsetFrac: 1 - (1 - splitPercent / 100) / 2 }
+      : undefined,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [maliSubnationalStep !== null, splitPercent],
+  );
   const splitDidDrag = useRef(false);
 
   const GROUP_ACCENT: Record<string, string> = {
-    "accelerating": "#34D399",
-    "slowing":      "#FB923C",
-    "emerging":     "#818CF8",
+    "accelerating": "#198754",
+    "slowing":      "#fd7e14",
+    "emerging":     "#0d6efd",
   };
   const cardAccent = conversationSourceCard ? (GROUP_ACCENT[conversationSourceCard.id] ?? "#34D399") : "#34D399";
 
@@ -390,29 +466,14 @@ export default function HomePage() {
     };
   }, []);
 
-  // Track home-page scroll so the prompt bar can dock at the bottom once the
-  // IntersectionObserver: dock the prompt bar to the bottom only once the
-  // hero sentinel (placed at the bottom of SearchHero) leaves the viewport.
+  // Globe blur on scroll — blurs the globe as the user scrolls down.
+  // Globe blur + header background on home scroll.
   useEffect(() => {
     if (view !== "home") {
       if (globeBlurRef.current) globeBlurRef.current.style.filter = "none";
       setHomeScrolled(false);
       return;
     }
-    const sentinel = heroSentinelRef.current;
-    const root = homeScrollRef.current;
-    if (!sentinel || !root) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setHomeScrolled(!entry.isIntersecting),
-      { root, threshold: 0 }
-    );
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [view]);
-
-  // Globe blur on scroll (separate from the dock trigger).
-  useEffect(() => {
-    if (view !== "home") return;
     const check = () => {
       const inner = homeScrollRef.current;
       const raw = inner?.scrollTop ?? 0;
@@ -420,6 +481,7 @@ export default function HomePage() {
         const blurPx = Math.min(raw / 320 * 14, 14).toFixed(1);
         globeBlurRef.current.style.filter = `blur(${blurPx}px)`;
       }
+      setHomeScrolled(raw > 10);
     };
     const inner = homeScrollRef.current;
     inner?.addEventListener("scroll", check, { passive: true });
@@ -463,7 +525,12 @@ export default function HomePage() {
   const currentConversation = conversations.find((c) => c.id === currentConversationId);
   const currentArtefacts = currentConversation?.artefacts ?? [];
   const isNarrativeDirect = view === "conversation" && currentConversationId != null && narrativeDirectConversations.has(currentConversationId);
-  const hideMap = isNarrativeDirect || mapCollapsed || narrativePhase !== "idle";
+  const globeHasContent = !!(currentMapRegions?.length);
+  // Hide map panel for beneficiary-geo flow until the map step fires (step 1 = full-width conversation)
+  const benefGeoHidden = currentFlow === "beneficiary-geo" && maliSubnationalStep === null;
+  const hideMap = isNarrativeDirect || mapCollapsed || narrativePhase !== "idle"
+    || (view === "conversation" && !globeHasContent)
+    || benefGeoHidden;
 
   const handleSearchComplete = (
     text: string,
@@ -474,12 +541,16 @@ export default function HomePage() {
     setConversationSourceCard(null);
     setActiveRowData(null);
     setMapViewMode("achieved");
+    setMaliSubnationalStep(null);
     setConversationFollowUps([]);
+    setConversationFollowUpTurns([]);
     // Set geo hint based on detected flow
     const flow = detectFlow(text);
+    setCurrentFlow(flow);
     setConversationGeoHint(
-      flow === "hnp-measurement" ? hnpGeoHint :
-      flow === "norway-donor"    ? norwayGeoHint :
+      flow === "methods-measurement" ? hnpGeoHint :
+      flow === "external-narrative"   ? norwayGeoHint :
+      // beneficiary-geo starts with no globe; geo hint is set when the map step fires
       null
     );
     // Set after reset (reset clears it) so an insight click can preload a
@@ -499,7 +570,7 @@ export default function HomePage() {
     setConversationPrompt(text);
     setPromptValue("");        // empty the bar for follow-up questions
     setView("conversation");
-    setHomeScrolled(false);    // reset for when we return home
+
     if (typeof window !== "undefined") {
       window.history.pushState({ view: "conversation", id }, "", `/conversation/${id}`);
     }
@@ -531,7 +602,6 @@ export default function HomePage() {
     setCurrentConversationId(id);
     setConversationPrompt("");
     setPromptValue("");
-    setHomeScrolled(false);
     setGuidedNarrativeSlug(null);
     setGuidedNarrativeAngle("results");
     setGuidedNarrativeCountries([]);
@@ -565,7 +635,6 @@ export default function HomePage() {
     setConversationPrompt("");
     setPromptValue("");
     setCreateNarrativeMode(false);
-    setHomeScrolled(false);
     setView("conversation");
     if (typeof window !== "undefined") {
       window.history.pushState({ view: "conversation", id }, "", `/conversation/${id}`);
@@ -1031,136 +1100,35 @@ export default function HomePage() {
 
   useEffect(() => { if (!menuOpen) setSubOpen(false); }, [menuOpen]);
 
+  useEffect(() => {
+    if (maliSubnationalStep !== null) {
+      setFlatMapOpen(true);
+      setConversationGeoHint(benefGeoHint);
+    }
+  }, [maliSubnationalStep]);
+
   return (
     <>
       <LoadingScreen isReady={isReady} progress={progress} />
-      {/* Shared, always-mounted prompt bar. Animates between hero-center
-          (home) and bottom-fixed (conversation). */}
-      {view !== "workspace" && view !== "viewer" && <PromptBar
-        mode={(view === "conversation" || (view === "home" && homeScrolled)) ? "bottom" : "hero"}
-        widthMode={view === "conversation" ? "wide" : "compact"}
-        value={promptValue}
-        onChange={setPromptValue}
-        beforeSubmit={view === "home" && !createNarrativeMode ? handleBeforeSubmit : undefined}
-        populateChips={narrativeSession.extractedParams}
-        onComplete={handleSearchComplete}
-        onCreateNarrative={handleCreateNarrative}
-        panelOpen={isNarrativeDirect ? rightPane !== null : view === "conversation"}
-        panelWidth={
-          isNarrativeDirect
-            ? rightPaneWidth
-            : view === "conversation"
-              ? (rightPane !== null ? rightPaneWidth : 0) + (hideMap ? 0 : Math.round(globeW * (1 - splitPercent / 100)))
-              : rightPaneWidth
-        }
-        suppressTransition={rightPaneDragging}
-        showCreateChip={
-          view === "conversation" &&
-          !currentArtefacts.some((a) => a.kind === "narrative") &&
-          narrativePhase === "skeleton-ready" &&
-          selectedSkeletonId != null
-        }
-        narrativePhase={narrativePhase}
-        onNarrativeConfirm={handleNarrativeConfirm}
-        onNarrativeMakeChanges={handleNarrativeMakeChanges}
-        narrativeConfirmDisabled={narrativePhase === "skeleton-ready" && selectedSkeletonId === null}
-        guidanceReplyChip={
-          guidanceReplyLabel
-            ? { label: guidanceReplyLabel, onDismiss: () => setGuidanceReplyLabel(null) }
-            : undefined
-        }
-        refiningChip={
-          narrativePhase === "refining" && refiningSkeletonId
-            ? {
-                title:
-                  guidedSkeletons.find((s) => s.id === refiningSkeletonId)?.title ?? "narrative angle",
-                onDismiss: handleCancelRefining,
-              }
-            : undefined
-        }
-        onRefineSubmit={
-          narrativePhase === "refining"
-            ? handleSubmitRefinement
-            : narrativePhase === "planning"
-              ? (text: string) => {
-                  wizardInputRef.current?.(text);
-                  setPromptValue("");
-                }
-              : narrativePhase === "converse"
-                ? (text: string) => {
-                    converseSendRef.current?.(text);
-                    setPromptValue("");
-                  }
-                : undefined
-        }
-        createNarrativeChip={
-          view === "home" && createNarrativeMode
-            ? { onDismiss: () => setCreateNarrativeMode(false) }
-            : undefined
-        }
-        onCreateNarrativeSubmit={
-          view === "home" && createNarrativeMode ? handleCreateNarrativeSubmit : undefined
-        }
-        contentModifyChip={
-          contentModifyTarget
-            ? {
-                text: contentModifyTarget.text.length > 50
-                  ? contentModifyTarget.text.slice(0, 50) + "…"
-                  : contentModifyTarget.text,
-                onDismiss: () => setContentModifyTarget(null),
-              }
-            : undefined
-        }
-        onContentModifySubmit={contentModifyTarget ? (instruction) => {
-          setContentModifySignal({
-            sectionId: contentModifyTarget.sectionId,
-            instruction,
-            nonce: Date.now(),
-          });
-          setContentModifyTarget(null);
-        } : undefined}
-        inputRef={promptInputRef}
-        inConversation={view === "conversation"}
-        contextChips={wizardContextChips}
-        onContextChipClick={(id) => {
-          if (id === "convert-narrative") {
-            const flow = detectFlow(conversationPrompt);
-            setNarrativeVariant(flow === "norway-donor" ? "donor-priorities" : "results");
-            setConversationFollowUps([]);
-            // Keep the preloaded answer visible but strip its follow-up prompts
-            setPreloadedInsight((prev) => prev ? { ...prev, followUps: [] } : null);
-            handleCreateNarrative();
-            return;
-          }
-          wizardContextActionRef.current?.(id);
-        }}
-        onSubmit={() => {
-          // Scroll the home view back to the top on submit so the beam runs
-          // in the right place and the bar can animate from bottom→hero first.
-          if (view === "home" && homeScrolled) {
-            const el = homeScrollRef.current;
-            if (el) el.scrollTo({ top: 0, behavior: "smooth" });
-            setHomeScrolled(false);
-          }
-        }}
-      />}
 
       {/* ── Fixed page background ── */}
-      {/* Base: always #112531 */}
+      {/* Base: theme-aware */}
       <div
         aria-hidden="true"
-        style={{ position: "fixed", inset: 0, zIndex: -2, background: "#112531" }}
+        style={{ position: "fixed", inset: 0, zIndex: -2, background: "var(--pg-bg-solid)", transition: "background 400ms ease" }}
       />
       {/* Landing gradient overlay — fades out on conversation / workspace */}
       <div
         aria-hidden="true"
         style={{
           position: "fixed", inset: 0, zIndex: -1,
-          background: [
-            /* radial bloom — soft light source just above centre-top */
+          background: isDark ? [
             "radial-gradient(ellipse 110% 60% at 50% -5%, rgba(58,155,205,0.42) 0%, rgba(28,90,135,0.12) 50%, transparent 72%)",
-            /* linear fade — lighter teal crown darkening to base */
             "linear-gradient(180deg, #1C4A62 0%, #152E3E 38%, #112531 68%)",
+          ].join(", ") : [
+            "radial-gradient(ellipse 80% 32% at 50% -10%, rgba(255,195,100,0.06) 0%, transparent 60%)",
+            "radial-gradient(ellipse 110% 60% at 50% -5%, rgba(100,180,230,0.14) 0%, rgba(60,130,190,0.06) 50%, transparent 72%)",
+            "linear-gradient(180deg, #fffef9 0%, #eaf4fb 28%, #d8eaf5 55%, #d5e7f3 100%)",
           ].join(", "),
           opacity: (view === "conversation" || view === "workspace") ? 0 : 1,
           transition: "opacity 700ms ease",
@@ -1184,18 +1152,19 @@ export default function HomePage() {
                   zIndex: 0,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   opacity: (hideMap || flatMapOpen) ? 0 : 0.72,
-                  transition: "opacity 450ms ease",
+                  transform: `translateY(-50%) translateX(${(hideMap && !flatMapOpen && !mapCollapsed && !isNarrativeDirect) ? "32px" : "0px"})`,
+                  transition: "opacity 480ms ease, transform 480ms ease",
                   pointerEvents: (currentMapRegions?.length) ? "auto" : "none",
                 }
               : {
                   position: "fixed",
                   left: "50%",
-                  top: "24vh",
+                  top: "28vh",
                   transform: "translate(-50%, 0) scale(1)",
-                  opacity: view === "workspace" ? 0 : 0.38,
+                  opacity: view === "workspace" ? 0 : (isDark ? 0.88 : 0.68),
                   pointerEvents: "none",
                   zIndex: 0,
-                  transition: "opacity 600ms ease",
+                  transition: "opacity 500ms ease, left 480ms ease, top 480ms ease, width 480ms ease",
                   willChange: "transform, filter",
                 }
           }
@@ -1204,17 +1173,34 @@ export default function HomePage() {
             <D3Globe
               width={Math.round(Math.min(globeH * 0.72, globeW * (1 - splitPercent / 100) * 0.86))}
               height={Math.round(Math.min(globeH * 0.72, globeW * (1 - splitPercent / 100) * 0.86))}
-              autoRotate
+              autoRotate={maliSubnationalStep === null}
               rotationSpeed={0.12}
               showGleam={false}
               highlightRegions={currentMapRegions}
               highlightColor={currentMapColor}
               highlightTooltipData={currentMapData}
+              subnationalPoints={
+                maliSubnationalStep === "cercle" ? MALI_CERCLE_POINTS :
+                maliSubnationalStep === "poverty" ? MALI_POVERTY_POINTS :
+                undefined
+              }
+              controlledRot={maliSubnationalStep !== null ? MALI_CENTER_LON : undefined}
+              onSnPointClick={(pt, x, y) => { setGlobeSnPopup({ pt, x, y }); setGlobeTooltip(null); }}
+              onDismiss={() => { setGlobeTooltip(null); setGlobeSnPopup(null); }}
               onCountryHover={
                 currentMapRegions?.length
                   ? (name, note, x, y) => {
-                      if (name) setGlobeTooltip({ name, note, x, y });
-                      else setGlobeTooltip(null);
+                      if (name) {
+                        setGlobeSnPopup(null);
+                        if (maliSubnationalStep !== null && name === "Mali") {
+                          setFlatMapOpen(true);
+                        } else {
+                          setGlobeTooltip({ name, note, x, y });
+                        }
+                      } else {
+                        setGlobeTooltip(null);
+                        setGlobeSnPopup(null);
+                      }
                     }
                   : undefined
               }
@@ -1226,6 +1212,8 @@ export default function HomePage() {
               autoRotate
               rotationSpeed={0.12}
               showGleam={view === "home"}
+              showNetwork
+              tiltAngle={-22}
             />
           )}
         </div>
@@ -1239,25 +1227,54 @@ export default function HomePage() {
             position: "fixed",
             inset: 0,
             zIndex: 0,
-            opacity: flatMapOpen && !hideMap ? 1 : 0,
+            opacity: flatMapOpen && !hideMap && maliSubnationalStep === null ? 1 : 0,
             transition: "opacity 450ms ease",
-            pointerEvents: flatMapOpen ? "auto" : "none",
+            pointerEvents: flatMapOpen && maliSubnationalStep === null ? "auto" : "none",
           }}
         >
           <FlatMapOverlay
             onClose={() => setFlatMapOpen(false)}
-            highlightRegions={currentMapRegions ?? []}
+            highlightRegions={maliSubnationalStep !== null ? ["Mali"] : (currentMapRegions ?? [])}
             highlightColor={currentMapColor}
             highlightTooltipData={currentMapData}
             geoDetailData={conversationSourceCard?.geoDetailData ?? conversationGeoHint?.geoDetailData}
             groupTitle={activeRowData ? activeRowData.label : (conversationSourceCard?.title ?? conversationGeoHint?.title)}
             viewMode={mapViewMode}
+            subnationalPoints={
+              maliSubnationalStep === "cercle" ? MALI_CERCLE_POINTS :
+              maliSubnationalStep === "poverty" ? [
+                ...MALI_REGION_POVERTY_CIRCLES,
+                ...MALI_POVERTY_POINTS.filter(pt => pt.color !== "#92400E"),
+              ] :
+              undefined
+            }
+            povertyMode={maliSubnationalStep === "poverty"}
+            centreOn={maliCentreOn}
+          />
+        </div>
+      )}
+
+      {/* ── Mali Leaflet maps — SSN geo flow only ── */}
+      {/* Full-screen so the iframe never repositions on re-render; left panel overlays at z-index 2 */}
+      {view === "conversation" && maliSubnationalStep !== null && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1,
+          }}
+        >
+          <iframe
+            key={maliSubnationalStep}
+            src={maliSubnationalStep === "cercle" ? "/mali/cercle-map.html" : "/mali/poverty-map.html"}
+            style={{ width: "100%", height: "100%", border: "none", display: "block" }}
+            title={maliSubnationalStep === "cercle" ? "Mali SSN beneficiary cercle map" : "Mali SSN poverty coverage map"}
           />
         </div>
       )}
 
       {view === "conversation" && (
-        <div className="cv-dark" style={{ display: "contents" }}>
+        <div className={isDark ? "cv-dark" : ""} style={{ display: "contents" }}>
           <NarrativePanel
             open={rightPane === "narrative"}
             prompt={conversationPrompt}
@@ -1360,25 +1377,27 @@ export default function HomePage() {
         />
       ) : view === "conversation" ? (
         <>
-          {/* ── Conversation-page nav ── */}
+          {/* ── Conversation-page nav — WBG dark teal brand color ── */}
           <nav style={{
             position: "fixed", top: 0, left: 0, right: 0,
             height: CONV_NAV_H, zIndex: 100,
             display: "flex", alignItems: "center", gap: 10,
             padding: "0 20px",
-            background: "rgba(17,37,49,0.90)",
-            backdropFilter: "blur(18px)",
-            WebkitBackdropFilter: "blur(18px)",
-            borderBottom: "1px solid rgba(255,255,255,0.06)",
+            background: "#15353F",
+            borderBottom: "1px solid rgba(255,255,255,0.08)",
             fontFamily: F,
           }}>
             {/* Logo + brand */}
-            <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+            <button
+              onClick={goHome}
+              aria-label="Go to home"
+              style={{ display: "flex", alignItems: "center", gap: 9, background: "none", border: "none", cursor: "pointer", padding: 0 }}
+            >
               <img src="/globe.svg" alt="" width={26} height={26} style={{ filter: "brightness(0) invert(1)", display: "block" }} />
               <span style={{ fontSize: 12.5, fontWeight: 700, color: "rgba(255,255,255,0.62)", letterSpacing: "0.01em" }}>
                 Scorecard Workbench
               </span>
-            </div>
+            </button>
 
             {/* Spacer */}
             <div style={{ flex: 1 }} />
@@ -1447,7 +1466,7 @@ export default function HomePage() {
             </button>
           </nav>
 
-          {/* ── Frosted glass panel — only shown when map is expanded ── */}
+          {/* ── Frosted glass panel — theme-aware ── */}
           {!hideMap && (
             <div
               aria-hidden="true"
@@ -1459,7 +1478,7 @@ export default function HomePage() {
                 zIndex: 1,
                 backdropFilter: "blur(32px)",
                 WebkitBackdropFilter: "blur(32px)",
-                background: "rgba(8,18,30,0.72)",
+                background: isDark ? "rgba(8,18,30,0.72)" : "rgba(240,247,254,0.76)",
                 pointerEvents: "none",
                 transition: "width 300ms ease",
               }}
@@ -1481,7 +1500,7 @@ export default function HomePage() {
           >
             <ConversationView
               embedded
-              dark={true}
+              dark={isDark}
               mapMode={true}
               prompt={conversationPrompt}
               onClose={goHome}
@@ -1510,11 +1529,24 @@ export default function HomePage() {
                 narrativeDirectConversations.has(currentConversationId)
               }
               followUpPrompts={conversationFollowUps}
+              followUpTurns={conversationFollowUpTurns}
               sourceCard={conversationSourceCard ?? undefined}
               onFollowUpClick={(p) => {
+                // "Create a narrative with these results" routes into the donor narrative wizard.
+                if (p === "Create a narrative with these results") {
+                  setNarrativeVariant("donor-priorities");
+                  setConversationFollowUps([]);
+                  setPreloadedInsight((prev) => prev ? { ...prev, followUps: [] } : null);
+                  handleCreateNarrative();
+                  return;
+                }
+                // Append the follow-up as a new turn in the current conversation
+                // rather than starting a fresh one — keeps the card + history visible.
                 setConversationFollowUps([]);
-                setConversationSourceCard(null);
-                handleSearchComplete(p);
+                setConversationFollowUpTurns((prev) => [...prev, p]);
+                // Collapse the globe so the conversation centres when following up
+                // from an indicator card — the map was only relevant to the first answer.
+                if (conversationSourceCard) setMapCollapsed(true);
               }}
               guidedNarrativeSlug={guidedNarrativeSlug}
               guidedNarrativeAngle={guidedNarrativeAngle}
@@ -1540,6 +1572,7 @@ export default function HomePage() {
               preloadedAnswer={preloadedInsight?.answer ?? null}
               preloadedFollowUps={preloadedInsight?.followUps ?? []}
               onConvertToNarrative={handleCreateNarrative}
+              onMaliStep={(step) => setMaliSubnationalStep(step)}
             />
           </div>
 
@@ -1595,7 +1628,7 @@ export default function HomePage() {
           )}
 
           {/* ── Map controls: Globe ↔ Flat map + Achieved/Expected toggle ── */}
-          {!hideMap && (
+          {!hideMap && maliSubnationalStep === null && (
             <div style={{
               position: "fixed",
               top: CONV_NAV_H + 16, right: 24,
@@ -1608,25 +1641,29 @@ export default function HomePage() {
                 style={{
                   display: "flex", alignItems: "center", gap: 6,
                   padding: "6px 14px",
-                  background: "rgba(8,18,30,0.82)",
-                  border: `1px solid ${flatMapOpen ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.12)"}`,
+                  background: isDark ? "rgba(8,18,30,0.82)" : "rgba(240,247,254,0.88)",
+                  border: isDark
+                    ? `1px solid ${flatMapOpen ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.12)"}`
+                    : `1px solid ${flatMapOpen ? "rgba(0,57,107,0.30)" : "rgba(0,57,107,0.16)"}`,
                   borderRadius: 20, cursor: "pointer",
                   fontSize: 11, fontWeight: 600,
-                  color: flatMapOpen ? "rgba(255,255,255,0.80)" : "rgba(255,255,255,0.60)",
+                  color: isDark
+                    ? (flatMapOpen ? "rgba(255,255,255,0.80)" : "rgba(255,255,255,0.60)")
+                    : (flatMapOpen ? "#3D5166" : "#4E6174"),
                   letterSpacing: "0.03em",
                   backdropFilter: "blur(8px)",
                   WebkitBackdropFilter: "blur(8px)",
                   transition: "border-color 0.15s, color 0.15s",
                 }}
               >
-                {flatMapOpen ? "← Globe" : "Flat map →"}
+                {flatMapOpen ? <><IconChevronLeft size={13} style={{ flexShrink: 0 }} />Globe</> : <>Flat map<IconChevronRight size={13} style={{ flexShrink: 0 }} /></>}
               </button>
 
               {(activeRowData || (conversationGeoHint?.achievedRegions)) && (
                 <div style={{
                   display: "flex",
-                  background: "rgba(8,18,30,0.82)",
-                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: isDark ? "rgba(8,18,30,0.82)" : "rgba(240,247,254,0.88)",
+                  border: isDark ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(0,57,107,0.16)",
                   borderRadius: 20,
                   padding: 2,
                   backdropFilter: "blur(8px)",
@@ -1644,8 +1681,8 @@ export default function HomePage() {
                         fontSize: 11, fontWeight: 600,
                         letterSpacing: "0.03em",
                         transition: "background 0.18s, color 0.18s",
-                        background: mapViewMode === mode ? "#3B82F6" : "transparent",
-                        color: mapViewMode === mode ? "#FFFFFF" : "rgba(255,255,255,0.50)",
+                        background: mapViewMode === mode ? "#0071BC" : "transparent",
+                        color: mapViewMode === mode ? "#FFFFFF" : (isDark ? "rgba(255,255,255,0.50)" : "#4E6174"),
                       }}
                     >
                       {mode.charAt(0).toUpperCase() + mode.slice(1)}
@@ -1655,6 +1692,82 @@ export default function HomePage() {
               )}
             </div>
           )}
+
+          {/* Conversation prompt bar — fixed at bottom */}
+          <PromptBar
+            mode="bottom"
+            widthMode="wide"
+            value={promptValue}
+            onChange={setPromptValue}
+            populateChips={narrativeSession.extractedParams}
+            onComplete={handleSearchComplete}
+            onCreateNarrative={handleCreateNarrative}
+            panelOpen={isNarrativeDirect ? rightPane !== null : true}
+            panelWidth={
+              isNarrativeDirect
+                ? rightPaneWidth
+                : (rightPane !== null ? rightPaneWidth : 0) + (hideMap ? 0 : Math.round(globeW * (1 - splitPercent / 100)))
+            }
+            suppressTransition={rightPaneDragging}
+            showCreateChip={
+              !currentArtefacts.some((a) => a.kind === "narrative") &&
+              narrativePhase === "skeleton-ready" &&
+              selectedSkeletonId != null
+            }
+            narrativePhase={narrativePhase}
+            onNarrativeConfirm={handleNarrativeConfirm}
+            onNarrativeMakeChanges={handleNarrativeMakeChanges}
+            narrativeConfirmDisabled={narrativePhase === "skeleton-ready" && selectedSkeletonId === null}
+            guidanceReplyChip={
+              guidanceReplyLabel
+                ? { label: guidanceReplyLabel, onDismiss: () => setGuidanceReplyLabel(null) }
+                : undefined
+            }
+            refiningChip={
+              narrativePhase === "refining" && refiningSkeletonId
+                ? {
+                    title: guidedSkeletons.find((s) => s.id === refiningSkeletonId)?.title ?? "narrative angle",
+                    onDismiss: handleCancelRefining,
+                  }
+                : undefined
+            }
+            onRefineSubmit={
+              narrativePhase === "refining"
+                ? handleSubmitRefinement
+                : narrativePhase === "planning"
+                  ? (text: string) => { wizardInputRef.current?.(text); setPromptValue(""); }
+                  : narrativePhase === "converse"
+                    ? (text: string) => { converseSendRef.current?.(text); setPromptValue(""); }
+                    : undefined
+            }
+            contentModifyChip={
+              contentModifyTarget
+                ? {
+                    text: contentModifyTarget.text.length > 50
+                      ? contentModifyTarget.text.slice(0, 50) + "…"
+                      : contentModifyTarget.text,
+                    onDismiss: () => setContentModifyTarget(null),
+                  }
+                : undefined
+            }
+            onContentModifySubmit={contentModifyTarget ? (instruction) => {
+              setContentModifySignal({ sectionId: contentModifyTarget.sectionId, instruction, nonce: Date.now() });
+              setContentModifyTarget(null);
+            } : undefined}
+            inputRef={promptInputRef}
+            inConversation
+            contextChips={wizardContextChips}
+            onContextChipClick={(id) => {
+              if (id === "convert-narrative") {
+                setNarrativeVariant("donor-priorities");
+                setConversationFollowUps([]);
+                setPreloadedInsight((prev) => prev ? { ...prev, followUps: [] } : null);
+                handleCreateNarrative();
+                return;
+              }
+              wizardContextActionRef.current?.(id);
+            }}
+          />
         </>
       ) : (
     <div
@@ -1666,7 +1779,7 @@ export default function HomePage() {
       <AppHeader
         workspaceCount={conversations.length}
         onOpenWorkspace={() => setView("workspace")}
-        scrolled={homeScrolled || view !== "home"}
+        scrolled={view !== "home" || homeScrolled}
         narrativeTitle={rightPane === "narrative" && narrativeTitle ? narrativeTitle : undefined}
         onNarrativeTitleChange={setNarrativeTitle}
         onLogoClick={goHome}
@@ -1674,13 +1787,31 @@ export default function HomePage() {
 
       <main className="flex-1 w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10">
         <SearchHero />
-        {/* Sentinel: fires as soon as the hero content (heading + stats) leaves
-            the viewport — before the spacer below, so the bar docks promptly */}
-        <div ref={heroSentinelRef} style={{ height: 0 }} />
-        {/* Spacer reserves room for the floating prompt bar + pills */}
-        <div style={{ height: 130 }} />
+        {/* Prompt bar: inline so it scrolls with the page. Only shown on home. */}
+        {view === "home" && <PromptBar
+          inline
+          mode="hero"
+          widthMode="compact"
+          value={promptValue}
+          onChange={setPromptValue}
+          beforeSubmit={!createNarrativeMode ? handleBeforeSubmit : undefined}
+          populateChips={narrativeSession.extractedParams}
+          onComplete={handleSearchComplete}
+          onCreateNarrative={handleCreateNarrative}
+          panelOpen={false}
+          suppressTransition={false}
+          createNarrativeChip={createNarrativeMode ? { onDismiss: () => setCreateNarrativeMode(false) } : undefined}
+          onCreateNarrativeSubmit={createNarrativeMode ? handleCreateNarrativeSubmit : undefined}
+          inputRef={promptInputRef}
+          inConversation={false}
+          onSubmit={() => {
+            const el = homeScrollRef.current;
+            if (el) el.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+        />}
         <QuickStartPills
-          visible={view === "home" && !homeScrolled}
+          visible={view === "home"}
+          inline
           onPillClick={(prompt) => {
             setPromptValue(prompt);
             setTimeout(() => promptInputRef.current?.focus(), 0);
@@ -1712,6 +1843,7 @@ export default function HomePage() {
                 title: row.label,
                 subtitle: `${row.achieved ?? row.delta} achieved · ${row.expected ?? ""}`.replace(/·\s*$/, "").trim(),
                 insight: row.insight ?? group.insight,
+                structuredInsight: row.structuredInsight,
                 rows: [row],
                 geoRegions: row.achievedGeoRegions ?? group.geoRegions,
                 geoData: row.achievedGeoData ?? group.geoData,
@@ -1969,31 +2101,6 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* ── Floating AI button (hidden when chat is open) ── */}
-      {!aiChatOpen && <button
-        aria-label="Ask AI"
-        onClick={() => setAiChatOpen((v) => !v)}
-        style={{
-          position: "fixed",
-          bottom: 24,
-          right: 24,
-          width: 52,
-          height: 52,
-          borderRadius: "50%",
-          border: `1px solid ${aiChatOpen ? "#0b6fd3" : "#E5E5E5"}`,
-          background: aiChatOpen ? "#EBF3FC" : "#FFFFFF",
-          boxShadow: "0px 4px 12px rgba(12,35,60,0.12)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: "pointer",
-          zIndex: 50,
-          color: aiChatOpen ? "#0b6fd3" : "#616161",
-          transition: "background 0.15s, border-color 0.15s, color 0.15s",
-        }}
-      >
-        <IconSparkles size={22} stroke={1.5} />
-      </button>}
 
       {modalStory && (
         <StoryDetailModal story={modalStory} onClose={() => setModalStory(null)} />
@@ -2019,38 +2126,101 @@ export default function HomePage() {
               zIndex: 200,
               pointerEvents: "auto",
               cursor: "pointer",
-              background: "rgba(8,20,36,0.96)",
-              border: `1px solid ${accentColor}44`,
+              background: isDark ? "rgba(8,20,36,0.96)" : "rgba(255,255,255,0.97)",
+              border: `1px solid ${isDark ? accentColor + "44" : accentColor + "55"}`,
               borderRadius: 10,
               padding: "10px 14px",
-              boxShadow: "0 8px 32px rgba(0,0,0,0.55)",
+              boxShadow: isDark ? "0 8px 32px rgba(0,0,0,0.55)" : "0 4px 20px rgba(0,30,60,0.12)",
               maxWidth: 260,
               fontFamily: "'Open Sans', sans-serif",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
               <span style={{ width: 7, height: 7, borderRadius: "50%", background: accentColor, flexShrink: 0, display: "inline-block" }} />
-              <span style={{ fontSize: 13.5, fontWeight: 600, color: "rgba(255,255,255,0.95)", lineHeight: 1.2 }}>{globeTooltip.name}</span>
+              <span style={{ fontSize: 13.5, fontWeight: 600, color: isDark ? "rgba(255,255,255,0.95)" : "rgba(10,30,55,0.92)", lineHeight: 1.2 }}>{globeTooltip.name}</span>
             </div>
             {detail ? (
               <div style={{ display: "flex", gap: 12, marginBottom: 6 }}>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.1, color: mapViewMode === "expected" ? "rgba(255,255,255,0.45)" : accentColor }}>{detail.achieved}</div>
-                  <div style={{ fontSize: 9.5, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 1 }}>Achieved (FY25)</div>
+                  <div style={{ fontSize: 9.5, color: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,30,60,0.40)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 1 }}>Achieved (FY25)</div>
                 </div>
                 {detail.expected && (
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.1, color: mapViewMode === "expected" ? accentColor : "rgba(255,255,255,0.45)" }}>{detail.expected}</div>
-                    <div style={{ fontSize: 9.5, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 1 }}>Expected</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.1, color: mapViewMode === "expected" ? accentColor : (isDark ? "rgba(255,255,255,0.45)" : "rgba(0,30,60,0.35)") }}>{detail.expected}</div>
+                    <div style={{ fontSize: 9.5, color: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,30,60,0.40)", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 1 }}>Expected</div>
                   </div>
                 )}
               </div>
             ) : globeTooltip.note ? (
-              <p style={{ margin: "0 0 6px", fontSize: 12, color: "rgba(255,255,255,0.6)", lineHeight: 1.5 }}>{globeTooltip.note}</p>
+              <p style={{ margin: "0 0 6px", fontSize: 12, color: isDark ? "rgba(255,255,255,0.6)" : "rgba(10,30,55,0.55)", lineHeight: 1.5 }}>{globeTooltip.note}</p>
             ) : null}
             <p style={{ margin: 0, fontSize: 10.5, color: accentColor, opacity: 0.7, letterSpacing: "0.02em" }}>
-              Click to view map →
+              Click to view map <IconChevronRight size={11} style={{ display: "inline", verticalAlign: "middle" }} />
             </p>
+          </div>
+        );
+      })()}
+
+      {globeSnPopup && (() => {
+        const { pt, x, y } = globeSnPopup;
+        const hasDetail = !!pt.detail;
+        return (
+          <div
+            style={{
+              position: "fixed",
+              left: x + 14,
+              top: y - 12,
+              zIndex: 200,
+              pointerEvents: "auto",
+              background: isDark ? "rgba(8,20,36,0.97)" : "rgba(255,255,255,0.98)",
+              border: `1px solid ${isDark ? "rgba(255,255,255,0.10)" : "rgba(0,57,107,0.13)"}`,
+              borderRadius: 10,
+              boxShadow: isDark ? "0 8px 32px rgba(0,0,0,0.55)" : "0 4px 20px rgba(0,30,60,0.12)",
+              minWidth: 280,
+              maxWidth: 360,
+              fontFamily: "'Open Sans', sans-serif",
+              overflow: "hidden",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {hasDetail ? (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
+                <div style={{ padding: "14px 14px", borderRight: `1px solid ${isDark ? "rgba(255,255,255,0.07)" : "rgba(0,57,107,0.08)"}` }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", color: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,57,107,0.40)", textTransform: "uppercase" as const, marginBottom: 10 }}>Cercle Detail</div>
+                  {pt.detail!.rows.map(([label, val]) => (
+                    <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 5 }}>
+                      <span style={{ fontSize: 11, color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,57,107,0.55)" }}>{label}</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: isDark ? "rgba(255,255,255,0.88)" : "#0A1E37" }}>{val}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ padding: "14px 14px" }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", color: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,57,107,0.40)", textTransform: "uppercase" as const, marginBottom: 10 }}>Contributing Project</div>
+                  {pt.detail!.project && (
+                    <div style={{ background: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,57,107,0.04)", borderRadius: 6, padding: "8px 10px" }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: isDark ? "rgba(255,255,255,0.88)" : "#0A1E37", lineHeight: 1.3, marginBottom: 3 }}>{pt.detail!.project.name}</div>
+                      <div style={{ fontSize: 10, color: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,57,107,0.45)" }}>{pt.detail!.project.id}</div>
+                      <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: "#3B82F6" }}>{pt.detail!.project.achieved.toLocaleString()}</div>
+                          <div style={{ fontSize: 9, color: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,57,107,0.40)", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>Achieved</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,30,60,0.35)" }}>{pt.detail!.project.expected.toLocaleString()}</div>
+                          <div style={{ fontSize: 9, color: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,57,107,0.40)", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>Expected</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div style={{ padding: "12px 14px" }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: isDark ? "rgba(255,255,255,0.92)" : "#0A1E37", marginBottom: 4 }}>{pt.name}</div>
+                {pt.note && <p style={{ margin: 0, fontSize: 12, color: isDark ? "rgba(255,255,255,0.55)" : "rgba(0,57,107,0.60)", lineHeight: 1.5 }}>{pt.note}</p>}
+              </div>
+            )}
           </div>
         );
       })()}

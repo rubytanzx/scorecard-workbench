@@ -1,5 +1,5 @@
 
-import { IconArrowRight } from "@tabler/icons-react";
+import { IconArrowRight, IconChevronRight } from "@tabler/icons-react";
 import {
   counterIntuitiveTextCards,
   type CounterIntuitiveTextCard,
@@ -13,11 +13,11 @@ function Card({ card }: { card: CounterIntuitiveTextCard }) {
   return (
     <article
       style={{
-        background: "rgba(255, 255, 255, 0.08)",
+        background: "var(--card-bg)",
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
-        border: "1px solid rgba(255, 255, 255, 0.14)",
-        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
+        border: "1px solid var(--card-border)",
+        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.05)",
         borderRadius: 12,
         padding: "20px 22px 18px",
         display: "flex",
@@ -43,7 +43,7 @@ function Card({ card }: { card: CounterIntuitiveTextCard }) {
           margin: 0,
           fontSize: 18,
           fontWeight: 600,
-          color: "rgba(255,255,255,0.95)",
+          color: "var(--text-1)",
           lineHeight: 1.35,
         }}
       >
@@ -54,7 +54,7 @@ function Card({ card }: { card: CounterIntuitiveTextCard }) {
         style={{
           margin: 0,
           fontSize: 13,
-          color: "rgba(255,255,255,0.62)",
+          color: "var(--insight-body)",
           lineHeight: 1.55,
           display: "-webkit-box",
           WebkitLineClamp: 4,
@@ -74,7 +74,7 @@ function Card({ card }: { card: CounterIntuitiveTextCard }) {
           gap: 6,
           fontSize: 13,
           fontWeight: 600,
-          color: "rgba(255,255,255,0.85)",
+          color: "var(--section-link)",
           textDecoration: "none",
         }}
       >
@@ -93,7 +93,7 @@ export default function CounterIntuitiveFindings() {
           <h2
             style={{
               margin: 0,
-              color: "rgba(255, 255, 255, 0.95)",
+              color: "var(--section-title)",
               fontFamily: F,
               fontSize: 26,
               fontWeight: 300,
@@ -103,12 +103,12 @@ export default function CounterIntuitiveFindings() {
           >
             Counter Intuitive Findings
           </h2>
-          <p style={{ margin: "4px 0 0 0", fontSize: 13, color: "rgba(255,255,255,0.55)", fontFamily: F }}>
+          <p style={{ margin: "4px 0 0 0", fontSize: 13, color: "var(--section-meta)", fontFamily: F }}>
             Where the data challenges assumptions
           </p>
         </div>
-        <a href="#" style={{ fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.65)", fontFamily: F, textDecoration: "none" }}>
-          View all →
+        <a href="#" style={{ fontSize: 13, fontWeight: 500, color: "var(--section-link)", fontFamily: F, textDecoration: "none" }}>
+          View all <IconChevronRight size={13} style={{ display: "inline", verticalAlign: "middle" }} />
         </a>
       </div>
 

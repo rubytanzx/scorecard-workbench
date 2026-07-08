@@ -395,7 +395,7 @@ export default function MadLibsInput({ initialText = "", onSubmit, onDismiss, on
                   }}
                   placeholder={
                     isTrailing && showInitialPlaceholder
-                      ? placeholder ?? "What do you want to learn about the Scorecard results?"
+                      ? placeholder ?? "What do you want to learn about the Scorecard?"
                       : ""
                   }
                   aria-label={isTrailing ? (placeholder ?? "Ask about Scorecard results") : undefined}

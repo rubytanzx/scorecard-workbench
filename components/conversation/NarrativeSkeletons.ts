@@ -757,13 +757,15 @@ const BASE_FLOW_SKELETONS = {
 // New non-narrative flows (Compare results / Explore an indicator) reuse the
 // closest existing skeleton set so the "Create narrative" path still works
 // from these conversations without requiring four fully-authored angles per
-// new flow. fy24-fy25-delta is people-pillar oriented → africa-poverty.
-// hnp-measurement is health-domain oriented → health-gap.
+// new flow. analytics-engine is people-pillar oriented → africa-poverty.
+// methods-measurement is health-domain oriented → health-gap.
 export const FLOW_SKELETONS = {
   ...BASE_FLOW_SKELETONS,
-  "fy24-fy25-delta":       BASE_FLOW_SKELETONS["africa-poverty"],
-  "hnp-measurement":       BASE_FLOW_SKELETONS["health-gap"],
+  "analytics-engine":      BASE_FLOW_SKELETONS["africa-poverty"],
+  "methods-measurement":   BASE_FLOW_SKELETONS["health-gap"],
   "methods-taxonomy":      BASE_FLOW_SKELETONS["africa-poverty"],
   "methods-compilation":   BASE_FLOW_SKELETONS["africa-poverty"],
-  "norway-donor":          BASE_FLOW_SKELETONS["africa-poverty"],
+  "external-narrative":    BASE_FLOW_SKELETONS["africa-poverty"],
+  "ssn-yoy":               BASE_FLOW_SKELETONS["africa-poverty"],
+  "beneficiary-geo":       BASE_FLOW_SKELETONS["africa-poverty"],
 } satisfies Record<FlowId, NarrativeSkeletonSet>;

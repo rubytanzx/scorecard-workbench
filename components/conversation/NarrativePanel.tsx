@@ -1,5 +1,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTheme } from "@/contexts/ThemeContext";
 import { createPortal } from "react-dom";
 import {
   IconX,
@@ -753,13 +754,44 @@ function CountryLocatorMap({ name }: { name: string }) {
 
 // ─── Charts for each accordion ──────────────────────────────────────────────
 
-// Shared chart container
-const chartWrap = {
-  borderRadius: 12,
-  background: "#0D1B2A",
-  border: "1px solid rgba(255,255,255,0.08)",
-  padding: "14px 16px 12px",
-} as const;
+// Shared chart tokens — theme-aware
+function chartTokens(isDark: boolean) {
+  return {
+    wrap: {
+      borderRadius: 12,
+      background: isDark ? "#0D1B2A" : "#fff",
+      border: isDark ? "1px solid rgba(255,255,255,0.08)" : "1px solid rgba(0,57,107,0.12)",
+      padding: "14px 16px 12px",
+    } as React.CSSProperties,
+    title: {
+      fontSize: 11.5, fontWeight: 600,
+      color: isDark ? "rgba(255,255,255,0.88)" : "#15353F",
+      letterSpacing: "-0.01em",
+      fontFamily: "'Open Sans', sans-serif",
+    } as React.CSSProperties,
+    tick: { fontSize: 10, fill: isDark ? "rgba(255,255,255,0.35)" : "#6B7C8E" },
+    tip: {
+      fontSize: 11, padding: "6px 10px", borderRadius: 8,
+      background: isDark ? "#0D2137" : "#fff",
+      border: isDark ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(0,57,107,0.12)",
+      boxShadow: isDark ? "0 4px 20px rgba(0,0,0,0.5)" : "0 4px 20px rgba(0,57,107,0.12)",
+      color: isDark ? "rgba(255,255,255,0.88)" : "#15353F",
+    },
+    src: {
+      fontSize: 10,
+      color: isDark ? "rgba(255,255,255,0.30)" : "#6B7C8E",
+      marginTop: 6,
+    } as React.CSSProperties,
+    gridStroke: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
+    dimText: isDark ? "rgba(255,255,255,0.45)" : "#6B7C8E",
+    dimTextLo: isDark ? "rgba(255,255,255,0.35)" : "#8B9BAB",
+    activeText: isDark ? "rgba(255,255,255,0.90)" : "#15353F",
+    barTrack: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,57,107,0.08)",
+    barFill: isDark ? "rgba(255,255,255,0.55)" : "rgba(0,57,107,0.45)",
+    dimTextMid: isDark ? "rgba(255,255,255,0.60)" : "#4E6174",
+    dimTextVlo: isDark ? "rgba(255,255,255,0.40)" : "#8B9BAB",
+  };
+}
 
 // ─── Chart Type System ────────────────────────────────────────────────────────
 // Six canonical types matching the platform's chart type reference.
@@ -780,6 +812,8 @@ function ChartTypeSwitcherBar({ available, selected, onChange }: {
   selected: ChartType;
   onChange: (t: ChartType) => void;
 }) {
+  const { isDark } = useTheme();
+  const ct = chartTokens(isDark);
   return (
     <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
       {CHART_TYPE_META.map(({ id, label, Icon }) => {
@@ -795,9 +829,9 @@ function ChartTypeSwitcherBar({ available, selected, onChange }: {
               display: "inline-flex", alignItems: "center", gap: 4,
               padding: "3px 9px", borderRadius: 20, fontSize: 10.5,
               fontFamily: "'Open Sans', sans-serif", fontWeight: isSelected ? 600 : 400,
-              border: isSelected ? "1px solid rgba(255,255,255,0.22)" : "1px solid rgba(255,255,255,0.07)",
-              background: isSelected ? "rgba(255,255,255,0.10)" : "transparent",
-              color: isSelected ? "rgba(255,255,255,0.88)" : isAvailable ? "rgba(255,255,255,0.38)" : "rgba(255,255,255,0.13)",
+              border: isSelected ? (isDark ? "1px solid rgba(255,255,255,0.22)" : "1px solid rgba(0,57,107,0.30)") : (isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(0,57,107,0.10)"),
+              background: isSelected ? (isDark ? "rgba(255,255,255,0.10)" : "rgba(0,57,107,0.07)") : "transparent",
+              color: isSelected ? ct.activeText : isAvailable ? ct.dimText : (isDark ? "rgba(255,255,255,0.13)" : "rgba(0,57,107,0.20)"),
               cursor: isAvailable ? "pointer" : "default",
               transition: "all 0.15s",
             }}
@@ -811,11 +845,7 @@ function ChartTypeSwitcherBar({ available, selected, onChange }: {
   );
 }
 
-// Shared style tokens used across chart renders
-const ctTitle: React.CSSProperties = { fontSize: 11.5, fontWeight: 600, color: "rgba(255,255,255,0.88)", letterSpacing: "-0.01em", fontFamily: "'Open Sans', sans-serif" };
-const ctTick = { fontSize: 10, fill: "rgba(255,255,255,0.35)" } as const;
-const ctTip = { fontSize: 11, padding: "6px 10px", borderRadius: 8, background: "#0D2137", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 4px 20px rgba(0,0,0,0.5)", color: "rgba(255,255,255,0.88)" };
-const ctSrc: React.CSSProperties = { fontSize: 10, color: "rgba(255,255,255,0.30)", marginTop: 6 };
+// (Style tokens are now generated via chartTokens(isDark) inside each component.)
 
 // Reusable ranked horizontal bar chart (Comparative type)
 function RankedBars({ data, title, unit = "", source, labelWidth = 80 }: {
@@ -825,32 +855,36 @@ function RankedBars({ data, title, unit = "", source, labelWidth = 80 }: {
   source?: string;
   labelWidth?: number;
 }) {
+  const { isDark } = useTheme();
+  const ct = chartTokens(isDark);
   return (
     <>
-      <div className="mb-3"><span style={ctTitle}>{title}</span></div>
+      <div className="mb-3"><span style={ct.title}>{title}</span></div>
       <div className="h-[128px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} layout="vertical" margin={{ top: 0, right: 16, left: 0, bottom: 0 }}>
-            <XAxis type="number" tick={ctTick} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}${unit}`} />
-            <YAxis type="category" dataKey="name" tick={ctTick} axisLine={false} tickLine={false} width={labelWidth} />
-            <RcTooltip contentStyle={ctTip} formatter={(v) => [`${v}${unit}`]} />
+            <XAxis type="number" tick={ct.tick} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}${unit}`} />
+            <YAxis type="category" dataKey="name" tick={ct.tick} axisLine={false} tickLine={false} width={labelWidth} />
+            <RcTooltip contentStyle={ct.tip} formatter={(v) => [`${v}${unit}`]} />
             <Bar dataKey="value" radius={[0, 4, 4, 0]}>
               {data.map((d, i) => <Cell key={i} fill={d.color ?? "#3B82F6"} fillOpacity={0.8} />)}
             </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>
-      {source && <div style={ctSrc}>{source}</div>}
+      {source && <div style={ct.src}>{source}</div>}
     </>
   );
 }
 
 // Reusable explanatory text block
 function ExplanatoryText({ title, body }: { title: string; body: string }) {
+  const { isDark } = useTheme();
+  const ct = chartTokens(isDark);
   return (
     <>
-      <div className="mb-2"><span style={ctTitle}>{title}</span></div>
-      <p style={{ fontSize: 12.5, lineHeight: 1.7, color: "rgba(255,255,255,0.55)", margin: 0, fontFamily: "'Open Sans', sans-serif" }}>{body}</p>
+      <div className="mb-2"><span style={ct.title}>{title}</span></div>
+      <p style={{ fontSize: 12.5, lineHeight: 1.7, color: isDark ? "rgba(255,255,255,0.55)" : "#4E6174", margin: 0, fontFamily: "'Open Sans', sans-serif" }}>{body}</p>
     </>
   );
 }
@@ -865,16 +899,18 @@ const POVERTY_TREND = [
 ];
 
 function ContextChart({ chartType }: { chartType: ChartType }) {
+  const { isDark } = useTheme();
+  const ct = chartTokens(isDark);
   return (
-    <div style={chartWrap}>
+    <div style={ct.wrap}>
 
       {chartType === "trend" && (
         <>
           <div className="flex items-center justify-between mb-3">
-            <span style={ctTitle}>Extreme poverty rate</span>
+            <span style={ct.title}>Extreme poverty rate</span>
             <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1.5" style={{ fontSize: 10, color: "rgba(255,255,255,0.45)" }}><span className="w-3 h-0.5 rounded-full" style={{ background: "#EF4444" }} />FCS</span>
-              <span className="flex items-center gap-1.5" style={{ fontSize: 10, color: "rgba(255,255,255,0.45)" }}><span className="w-3 h-0.5 rounded-full" style={{ background: "#3B82F6" }} />LIC avg</span>
+              <span className="flex items-center gap-1.5" style={{ fontSize: 10, color: ct.dimText }}><span className="w-3 h-0.5 rounded-full" style={{ background: "#EF4444" }} />FCS</span>
+              <span className="flex items-center gap-1.5" style={{ fontSize: 10, color: ct.dimText }}><span className="w-3 h-0.5 rounded-full" style={{ background: "#3B82F6" }} />LIC avg</span>
             </div>
           </div>
           <div className="h-[128px]">
@@ -884,16 +920,16 @@ function ContextChart({ chartType }: { chartType: ChartType }) {
                   <linearGradient id="gradFcs" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#EF4444" stopOpacity={0.12} /><stop offset="95%" stopColor="#EF4444" stopOpacity={0} /></linearGradient>
                   <linearGradient id="gradLic" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3B82F6" stopOpacity={0.10} /><stop offset="95%" stopColor="#3B82F6" stopOpacity={0} /></linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-                <XAxis dataKey="year" tick={ctTick} axisLine={false} tickLine={false} />
-                <YAxis tick={ctTick} axisLine={false} tickLine={false} domain={["dataMin - 2", "dataMax + 2"]} />
-                <RcTooltip contentStyle={ctTip} formatter={(v, name) => [`${v}%`, name === "fcs" ? "FCS" : "LIC avg"]} />
+                <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} vertical={false} />
+                <XAxis dataKey="year" tick={ct.tick} axisLine={false} tickLine={false} />
+                <YAxis tick={ct.tick} axisLine={false} tickLine={false} domain={["dataMin - 2", "dataMax + 2"]} />
+                <RcTooltip contentStyle={ct.tip} formatter={(v, name) => [`${v}%`, name === "fcs" ? "FCS" : "LIC avg"]} />
                 <Area type="monotone" dataKey="fcs" stroke="#EF4444" strokeWidth={2} dot={false} fill="url(#gradFcs)" />
                 <Area type="monotone" dataKey="lic" stroke="#3B82F6" strokeWidth={2} dot={false} fill="url(#gradLic)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
-          <div style={ctSrc}>CSC_CLI_EXT_POOR_FCS · 5-year trend</div>
+          <div style={ct.src}>CSC_CLI_EXT_POOR_FCS · 5-year trend</div>
         </>
       )}
 
@@ -909,19 +945,19 @@ function ContextChart({ chartType }: { chartType: ChartType }) {
 
       {chartType === "diagnostic" && (
         <>
-          <div className="mb-3"><span style={ctTitle}>Year-on-year change — FCS poverty rate</span></div>
+          <div className="mb-3"><span style={ct.title}>Year-on-year change — FCS poverty rate</span></div>
           <div className="h-[128px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={[{ period: "FY21→22", delta: -1.2 }, { period: "FY22→23", delta: -1.2 }, { period: "FY23→24", delta: -1.4 }, { period: "FY24→25", delta: -1.4 }]} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-                <XAxis dataKey="period" tick={{ ...ctTick, fontSize: 9 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ ...ctTick, fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}pp`} />
-                <RcTooltip contentStyle={ctTip} formatter={(v) => [`${v}pp`, "Change"]} />
+                <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} vertical={false} />
+                <XAxis dataKey="period" tick={{ ...ct.tick, fontSize: 9 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ ...ct.tick, fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v}pp`} />
+                <RcTooltip contentStyle={ct.tip} formatter={(v) => [`${v}pp`, "Change"]} />
                 <Bar dataKey="delta" fill="#34D399" fillOpacity={0.75} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div style={ctSrc}>Percentage point change per year · FCS countries</div>
+          <div style={ct.src}>Percentage point change per year · FCS countries</div>
         </>
       )}
 
@@ -946,15 +982,17 @@ const VERTICAL_MIX = [
 
 function InterventionChart({ chartType }: { chartType: ChartType }) {
   const [hover, setHover] = useState<string | null>(null);
+  const { isDark } = useTheme();
+  const ct = chartTokens(isDark);
   const total = VERTICAL_MIX.reduce((s, v) => s + v.value, 0);
   return (
-    <div style={chartWrap}>
+    <div style={ct.wrap}>
 
       {chartType === "compositional" && (
         <>
           <div className="flex items-baseline justify-between mb-3">
-            <span style={ctTitle}>FY25 reach by delivery vertical</span>
-            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>{total.toLocaleString()}M total</span>
+            <span style={ct.title}>FY25 reach by delivery vertical</span>
+            <span style={{ fontSize: 10, color: ct.dimTextLo }}>{total.toLocaleString()}M total</span>
           </div>
           <div className="flex h-2 rounded-full overflow-hidden mb-3.5">
             {VERTICAL_MIX.map((v) => (
@@ -968,10 +1006,10 @@ function InterventionChart({ chartType }: { chartType: ChartType }) {
               return (
                 <li key={v.name} className="flex flex-col gap-1 cursor-default" onMouseEnter={() => setHover(v.name)} onMouseLeave={() => setHover(null)}>
                   <div className="flex items-baseline justify-between">
-                    <span style={{ fontSize: 11, color: isHov ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.45)", fontWeight: isHov ? 500 : 400, transition: "color 0.15s" }}>{v.name}</span>
-                    <span style={{ fontSize: 11, color: isHov ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.35)", fontWeight: isHov ? 600 : 400, transition: "color 0.15s" }} className="tabular-nums">{v.value}M &middot; {pct}%</span>
+                    <span style={{ fontSize: 11, color: isHov ? ct.activeText : ct.dimText, fontWeight: isHov ? 500 : 400, transition: "color 0.15s" }}>{v.name}</span>
+                    <span style={{ fontSize: 11, color: isHov ? ct.activeText : ct.dimTextLo, fontWeight: isHov ? 600 : 400, transition: "color 0.15s" }} className="tabular-nums">{v.value}M &middot; {pct}%</span>
                   </div>
-                  <div style={{ height: 3, borderRadius: 99, background: "rgba(255,255,255,0.08)" }}>
+                  <div style={{ height: 3, borderRadius: 99, background: ct.barTrack }}>
                     <div style={{ width: `${pct}%`, height: 3, borderRadius: 99, background: v.color, opacity: !hover || isHov ? 1 : 0.3, transition: "opacity 0.15s" }} />
                   </div>
                 </li>
@@ -1012,55 +1050,57 @@ const VERTICAL_RATIOS = [
 
 function ImpactChart({ chartType }: { chartType: ChartType }) {
   const [hover, setHover] = useState<string | null>(null);
+  const { isDark } = useTheme();
+  const ct = chartTokens(isDark);
+  const barColor = ct.barFill;
   return (
-    <div style={chartWrap}>
+    <div style={ct.wrap}>
 
       {chartType === "comparative" && (
         <>
-          <div className="mb-3"><span style={ctTitle}>Achievement rate vs target · FY25</span></div>
+          <div className="mb-3"><span style={ct.title}>Achievement rate vs target · FY25</span></div>
           <ul className="flex flex-col gap-2.5">
             {VERTICAL_RATIOS.map((v) => {
               const isHov = hover === v.name;
-              const barColor = "rgba(255,255,255,0.55)";
               return (
                 <li key={v.name} className="flex flex-col gap-1 cursor-default" onMouseEnter={() => setHover(v.name)} onMouseLeave={() => setHover(null)}>
                   <div className="flex items-baseline justify-between">
-                    <span style={{ fontSize: 11, color: isHov ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.45)", fontWeight: isHov ? 500 : 400, transition: "color 0.15s" }}>{v.name}</span>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: isHov ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.55)", transition: "color 0.15s" }} className="tabular-nums">{v.value}%</span>
+                    <span style={{ fontSize: 11, color: isHov ? ct.activeText : ct.dimText, fontWeight: isHov ? 500 : 400, transition: "color 0.15s" }}>{v.name}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: isHov ? ct.activeText : ct.dimTextMid, transition: "color 0.15s" }} className="tabular-nums">{v.value}%</span>
                   </div>
-                  <div style={{ height: 4, borderRadius: 99, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                  <div style={{ height: 4, borderRadius: 99, background: ct.barTrack, overflow: "hidden" }}>
                     <div style={{ width: `${v.value}%`, height: 4, borderRadius: 99, background: barColor, opacity: isHov ? 1 : 0.65, transition: "opacity 0.15s, width 0.4s ease" }} />
                   </div>
                 </li>
               );
             })}
           </ul>
-          <div style={ctSrc}>% of FY25 target · People-pillar average 65%</div>
+          <div style={ct.src}>% of FY25 target · People-pillar average 65%</div>
         </>
       )}
 
       {chartType === "compositional" && (
         <>
-          <div className="mb-3"><span style={ctTitle}>Achieved vs gap to target · FY25</span></div>
+          <div className="mb-3"><span style={ct.title}>Achieved vs gap to target · FY25</span></div>
           <div className="h-[140px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={VERTICAL_RATIOS.map((v) => ({ name: v.name, achieved: v.value, gap: 100 - v.value }))} layout="vertical" margin={{ top: 0, right: 16, left: 0, bottom: 0 }}>
-                <XAxis type="number" tick={ctTick} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-                <YAxis type="category" dataKey="name" tick={ctTick} axisLine={false} tickLine={false} width={80} />
-                <RcTooltip contentStyle={ctTip} formatter={(v, name) => [`${v}%`, name === "achieved" ? "Achieved" : "Gap"]} />
-                <Bar dataKey="achieved" stackId="a" fill="rgba(255,255,255,0.55)" fillOpacity={0.8} />
-                <Bar dataKey="gap" stackId="a" fill="rgba(255,255,255,0.07)" radius={[0, 4, 4, 0]} />
+                <XAxis type="number" tick={ct.tick} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                <YAxis type="category" dataKey="name" tick={ct.tick} axisLine={false} tickLine={false} width={80} />
+                <RcTooltip contentStyle={ct.tip} formatter={(v, name) => [`${v}%`, name === "achieved" ? "Achieved" : "Gap"]} />
+                <Bar dataKey="achieved" stackId="a" fill={ct.barFill} fillOpacity={0.8} />
+                <Bar dataKey="gap" stackId="a" fill={isDark ? "rgba(255,255,255,0.07)" : "rgba(0,57,107,0.07)"} radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div style={ctSrc}>% of FY25 target · shaded = gap remaining</div>
+          <div style={ct.src}>% of FY25 target · shaded = gap remaining</div>
         </>
       )}
 
       {chartType === "diagnostic" && (
         <RankedBars
           title="Gap to target by vertical · FY25"
-          data={[...VERTICAL_RATIOS].sort((a, b) => (100 - a.value) - (100 - b.value)).map((v) => ({ name: v.name, value: 100 - v.value, color: "rgba(255,255,255,0.45)" }))}
+          data={[...VERTICAL_RATIOS].sort((a, b) => (100 - a.value) - (100 - b.value)).map((v) => ({ name: v.name, value: 100 - v.value, color: ct.dimText }))}
           unit="%"
           source="Percentage points below FY25 target"
         />
@@ -1394,16 +1434,18 @@ const UHC_TREND = [
   { year: "FY25", fcs: 32, lic: 49 },
 ];
 function HealthContextChart({ chartType }: { chartType: ChartType }) {
+  const { isDark } = useTheme();
+  const ct = chartTokens(isDark);
   return (
-    <div style={chartWrap}>
+    <div style={ct.wrap}>
 
       {chartType === "trend" && (
         <>
           <div className="flex items-center justify-between mb-3">
-            <span style={ctTitle}>UHC service coverage index</span>
+            <span style={ct.title}>UHC service coverage index</span>
             <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1.5" style={{ fontSize: 10, color: "rgba(255,255,255,0.45)" }}><span className="w-3 h-0.5 rounded-full" style={{ background: "#EF4444" }} />FCS</span>
-              <span className="flex items-center gap-1.5" style={{ fontSize: 10, color: "rgba(255,255,255,0.45)" }}><span className="w-3 h-0.5 rounded-full" style={{ background: "#3B82F6" }} />LIC avg</span>
+              <span className="flex items-center gap-1.5" style={{ fontSize: 10, color: ct.dimText }}><span className="w-3 h-0.5 rounded-full" style={{ background: "#EF4444" }} />FCS</span>
+              <span className="flex items-center gap-1.5" style={{ fontSize: 10, color: ct.dimText }}><span className="w-3 h-0.5 rounded-full" style={{ background: "#3B82F6" }} />LIC avg</span>
             </div>
           </div>
           <div className="h-[128px]">
@@ -1413,16 +1455,16 @@ function HealthContextChart({ chartType }: { chartType: ChartType }) {
                   <linearGradient id="gradUhcFcs" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#EF4444" stopOpacity={0.12} /><stop offset="95%" stopColor="#EF4444" stopOpacity={0} /></linearGradient>
                   <linearGradient id="gradUhcLic" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3B82F6" stopOpacity={0.10} /><stop offset="95%" stopColor="#3B82F6" stopOpacity={0} /></linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-                <XAxis dataKey="year" tick={ctTick} axisLine={false} tickLine={false} />
-                <YAxis tick={ctTick} axisLine={false} tickLine={false} domain={[20, 60]} />
-                <RcTooltip contentStyle={ctTip} formatter={(v, name) => [`${v}/100`, name === "fcs" ? "FCS" : "LIC avg"]} />
+                <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} vertical={false} />
+                <XAxis dataKey="year" tick={ct.tick} axisLine={false} tickLine={false} />
+                <YAxis tick={ct.tick} axisLine={false} tickLine={false} domain={[20, 60]} />
+                <RcTooltip contentStyle={ct.tip} formatter={(v, name) => [`${v}/100`, name === "fcs" ? "FCS" : "LIC avg"]} />
                 <Area type="monotone" dataKey="fcs" stroke="#EF4444" strokeWidth={2} dot={false} fill="url(#gradUhcFcs)" />
                 <Area type="monotone" dataKey="lic" stroke="#3B82F6" strokeWidth={2} dot={false} fill="url(#gradUhcLic)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
-          <div style={ctSrc}>SH_UHC_SRVS_CV_XD · 5-year trend (0–100)</div>
+          <div style={ct.src}>SH_UHC_SRVS_CV_XD · 5-year trend (0–100)</div>
         </>
       )}
 
@@ -1456,15 +1498,17 @@ const HNP_PROJECT_MIX = [
 ];
 function HealthInterventionChart({ chartType }: { chartType: ChartType }) {
   const [hover, setHover] = useState<string | null>(null);
+  const { isDark } = useTheme();
+  const ct = chartTokens(isDark);
   const total = HNP_PROJECT_MIX.reduce((s, v) => s + v.value, 0);
   return (
-    <div style={chartWrap}>
+    <div style={ct.wrap}>
 
       {chartType === "compositional" && (
         <>
           <div className="flex items-baseline justify-between mb-3">
-            <span style={ctTitle}>FY25 HNP reach by project type</span>
-            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>{total}M total</span>
+            <span style={ct.title}>FY25 HNP reach by project type</span>
+            <span style={{ fontSize: 10, color: ct.dimTextLo }}>{total}M total</span>
           </div>
           <div className="flex h-2 rounded-full overflow-hidden mb-3.5">
             {HNP_PROJECT_MIX.map((v) => (
@@ -1478,10 +1522,10 @@ function HealthInterventionChart({ chartType }: { chartType: ChartType }) {
               return (
                 <li key={v.name} className="flex flex-col gap-1 cursor-default" onMouseEnter={() => setHover(v.name)} onMouseLeave={() => setHover(null)}>
                   <div className="flex items-baseline justify-between">
-                    <span style={{ fontSize: 11, color: isHov ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.45)", fontWeight: isHov ? 500 : 400, transition: "color 0.15s" }}>{v.name}</span>
-                    <span style={{ fontSize: 11, color: isHov ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.35)", fontWeight: isHov ? 600 : 400, transition: "color 0.15s" }} className="tabular-nums">{v.value}M &middot; {pct}%</span>
+                    <span style={{ fontSize: 11, color: isHov ? ct.activeText : ct.dimText, fontWeight: isHov ? 500 : 400, transition: "color 0.15s" }}>{v.name}</span>
+                    <span style={{ fontSize: 11, color: isHov ? ct.activeText : ct.dimTextLo, fontWeight: isHov ? 600 : 400, transition: "color 0.15s" }} className="tabular-nums">{v.value}M &middot; {pct}%</span>
                   </div>
-                  <div style={{ height: 3, borderRadius: 99, background: "rgba(255,255,255,0.08)" }}>
+                  <div style={{ height: 3, borderRadius: 99, background: ct.barTrack }}>
                     <div style={{ width: `${pct}%`, height: 3, borderRadius: 99, background: v.color, opacity: !hover || isHov ? 1 : 0.3, transition: "opacity 0.15s" }} />
                   </div>
                 </li>
@@ -1521,29 +1565,31 @@ const GAP_DRIVERS = [
 ];
 function HealthImpactChart({ chartType }: { chartType: ChartType }) {
   const [hover, setHover] = useState<string | null>(null);
+  const { isDark } = useTheme();
+  const ct = chartTokens(isDark);
   return (
-    <div style={chartWrap}>
+    <div style={ct.wrap}>
 
       {chartType === "diagnostic" && (
         <>
-          <div className="mb-3"><span style={ctTitle}>Gap driver decomposition · bottom-5 countries</span></div>
+          <div className="mb-3"><span style={ct.title}>Gap driver decomposition · bottom-5 countries</span></div>
           <ul className="flex flex-col gap-2.5">
             {GAP_DRIVERS.map((v) => {
               const isHov = hover === v.name;
               return (
                 <li key={v.name} className="flex flex-col gap-1 cursor-default" onMouseEnter={() => setHover(v.name)} onMouseLeave={() => setHover(null)}>
                   <div className="flex items-baseline justify-between">
-                    <span style={{ fontSize: 11, color: isHov ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.45)", fontWeight: isHov ? 500 : 400, transition: "color 0.15s" }}>{v.name}</span>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.60)" }} className="tabular-nums">{v.value}%</span>
+                    <span style={{ fontSize: 11, color: isHov ? ct.activeText : ct.dimText, fontWeight: isHov ? 500 : 400, transition: "color 0.15s" }}>{v.name}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: ct.dimTextMid }} className="tabular-nums">{v.value}%</span>
                   </div>
-                  <div style={{ height: 4, borderRadius: 99, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                  <div style={{ height: 4, borderRadius: 99, background: ct.barTrack, overflow: "hidden" }}>
                     <div style={{ width: `${v.value}%`, height: 4, borderRadius: 99, background: v.color, opacity: isHov ? 1 : 0.65, transition: "opacity 0.15s, width 0.4s ease" }} />
                   </div>
                 </li>
               );
             })}
           </ul>
-          <div style={ctSrc}>Share of FY25 HNP shortfall · project-note decomposition</div>
+          <div style={ct.src}>Share of FY25 HNP shortfall · project-note decomposition</div>
         </>
       )}
 
@@ -1559,7 +1605,7 @@ function HealthImpactChart({ chartType }: { chartType: ChartType }) {
 
       {chartType === "compositional" && (
         <>
-          <div className="mb-3"><span style={ctTitle}>Composition of FY25 HNP shortfall</span></div>
+          <div className="mb-3"><span style={ct.title}>Composition of FY25 HNP shortfall</span></div>
           <div className="flex h-3 rounded-full overflow-hidden mb-3">
             {GAP_DRIVERS.map((v) => (
               <div key={v.name} style={{ width: `${v.value}%`, background: v.color, opacity: !hover || hover === v.name ? 1 : 0.25, transition: "opacity 0.15s" }} onMouseEnter={() => setHover(v.name)} onMouseLeave={() => setHover(null)} />
@@ -1568,15 +1614,15 @@ function HealthImpactChart({ chartType }: { chartType: ChartType }) {
           <ul className="flex flex-col gap-1.5">
             {GAP_DRIVERS.map((v) => (
               <li key={v.name} className="flex items-center justify-between" onMouseEnter={() => setHover(v.name)} onMouseLeave={() => setHover(null)}>
-                <span className="flex items-center gap-2" style={{ fontSize: 11, color: hover === v.name ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.45)" }}>
+                <span className="flex items-center gap-2" style={{ fontSize: 11, color: hover === v.name ? ct.activeText : ct.dimText }}>
                   <span style={{ width: 8, height: 8, borderRadius: 2, background: v.color, display: "inline-block", flexShrink: 0 }} />
                   {v.name}
                 </span>
-                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.40)", fontWeight: 500 }} className="tabular-nums">{v.value}%</span>
+                <span style={{ fontSize: 11, color: ct.dimTextVlo, fontWeight: 500 }} className="tabular-nums">{v.value}%</span>
               </li>
             ))}
           </ul>
-          <div style={ctSrc}>Share of FY25 HNP shortfall · all factors sum to 100%</div>
+          <div style={ct.src}>Share of FY25 HNP shortfall · all factors sum to 100%</div>
         </>
       )}
 
@@ -2454,6 +2500,7 @@ function NarrativeStrengthPanel({
   scores: NarrativeScores;
   onExplainScore?: (key: keyof NarrativeScores, label: string, val: number) => void;
 }) {
+  const { isDark } = useTheme();
   const overall = Math.round(
     Object.values(scores).reduce((a, b) => a + b, 0) / Object.values(scores).length
   );
@@ -2483,14 +2530,16 @@ function NarrativeStrengthPanel({
     <div
       className="narrative-content-enter rounded-2xl overflow-hidden"
       style={{
-        background: "linear-gradient(150deg, rgba(8,15,30,0.98) 0%, rgba(12,22,44,0.96) 100%)",
-        border: "1px solid rgba(255,255,255,0.07)",
-        boxShadow: "0 8px 32px rgba(0,0,0,0.22)",
+        background: isDark
+          ? "linear-gradient(150deg, rgba(8,15,30,0.98) 0%, rgba(12,22,44,0.96) 100%)"
+          : "linear-gradient(150deg, #F0F7FE 0%, #E8F2FB 100%)",
+        border: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(0,57,107,0.12)",
+        boxShadow: isDark ? "0 8px 32px rgba(0,0,0,0.22)" : "0 4px 16px rgba(0,57,107,0.08)",
       }}
     >
       {/* Header */}
       <div className="px-6 pt-5 pb-2">
-        <p style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: "rgba(255,255,255,0.35)", textTransform: "uppercase", marginBottom: 2 }}>
+        <p style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em", color: isDark ? "rgba(255,255,255,0.35)" : "#6B7C8E", textTransform: "uppercase", marginBottom: 2 }}>
           Narrative Strength
         </p>
       </div>
@@ -2506,7 +2555,7 @@ function NarrativeStrengthPanel({
               <stop offset="100%" stopColor="#8B5CF6" />
             </linearGradient>
           </defs>
-          <circle cx={60} cy={60} r={R} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={8} />
+          <circle cx={60} cy={60} r={R} fill="none" stroke={isDark ? "rgba(255,255,255,0.07)" : "rgba(0,57,107,0.10)"} strokeWidth={8} />
           <circle
             cx={60} cy={60} r={R}
             fill="none"
@@ -2518,11 +2567,11 @@ function NarrativeStrengthPanel({
             style={{ transition: "stroke-dasharray 0.6s ease" }}
           />
           <text x={60} y={56} textAnchor="middle" dominantBaseline="central"
-            fill="rgba(255,255,255,0.95)" fontSize={22} fontWeight={700} fontFamily="'Open Sans', sans-serif">
+            fill={isDark ? "rgba(255,255,255,0.95)" : "#15353F"} fontSize={22} fontWeight={700} fontFamily="'Open Sans', sans-serif">
             {overall}%
           </text>
           <text x={60} y={74} textAnchor="middle"
-            fill="rgba(255,255,255,0.30)" fontSize={10} fontFamily="'Open Sans', sans-serif">
+            fill={isDark ? "rgba(255,255,255,0.30)" : "#6B7C8E"} fontSize={10} fontFamily="'Open Sans', sans-serif">
             overall
           </text>
         </svg>
@@ -2541,10 +2590,10 @@ function NarrativeStrengthPanel({
                   setScoreMenu({ key: c.key, label: c.label, val, top: rect.top, left: rect.left + rect.width / 2 });
                 }}
               >
-                <span style={{ fontSize: 12, color: "rgba(255,255,255,0.60)", whiteSpace: "nowrap", width: 130 }}>
+                <span style={{ fontSize: 12, color: isDark ? "rgba(255,255,255,0.60)" : "#4E6174", whiteSpace: "nowrap", width: 130 }}>
                   {c.label}
                 </span>
-                <div style={{ flex: 1, height: 3, borderRadius: 99, background: "rgba(255,255,255,0.07)" }}>
+                <div style={{ flex: 1, height: 3, borderRadius: 99, background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,57,107,0.08)" }}>
                   <div
                     style={{ width: `${val}%`, height: 3, borderRadius: 99, background: criteriaColor(val), transition: "width 0.5s ease" }}
                   />
@@ -2891,6 +2940,7 @@ function SkelBar({ width = "100%", height = 10, className = "" }: {
 
 // Standard (non-guided) loading skeleton — mirrors NarrativeStrengthPanel + accordion rows
 function NarrativeLoadingStandard() {
+  const { isDark } = useTheme();
   const sections = ["The Challenge", "Pathways to Outcomes", "Country Examples", "Lessons Learned"];
   return (
     <div className="px-6 py-6 flex flex-col gap-6" aria-busy="true">
@@ -2898,26 +2948,28 @@ function NarrativeLoadingStandard() {
       <div
         className="rounded-2xl overflow-hidden animate-pulse"
         style={{
-          background: "linear-gradient(150deg, rgba(8,15,30,0.98) 0%, rgba(12,22,44,0.96) 100%)",
-          border: "1px solid rgba(255,255,255,0.07)",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.22)",
+          background: isDark
+            ? "linear-gradient(150deg, rgba(8,15,30,0.98) 0%, rgba(12,22,44,0.96) 100%)"
+            : "linear-gradient(150deg, #F0F7FE 0%, #E8F2FB 100%)",
+          border: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(0,57,107,0.12)",
+          boxShadow: isDark ? "0 8px 32px rgba(0,0,0,0.22)" : "0 4px 16px rgba(0,57,107,0.08)",
         }}
       >
         <div className="px-6 pt-5 pb-2">
-          <div className="h-2 w-28 rounded-full" style={{ background: "rgba(255,255,255,0.12)" }} />
+          <div className="h-2 w-28 rounded-full" style={{ background: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,57,107,0.12)" }} />
         </div>
         <div className="flex items-center gap-8 px-6 pb-6">
           <div
             className="shrink-0 rounded-full"
-            style={{ width: 120, height: 120, border: "8px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.04)" }}
+            style={{ width: 120, height: 120, border: isDark ? "8px solid rgba(255,255,255,0.10)" : "8px solid rgba(0,57,107,0.10)", background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,57,107,0.04)" }}
           />
           <div className="flex-1 flex flex-col gap-3">
             {[65, 85, 50, 75, 70].map((w, i) => (
               <div key={i} className="flex items-center gap-2.5">
-                <div className="flex-1 h-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
-                  <div className="h-full rounded-full" style={{ width: `${w}%`, background: "rgba(255,255,255,0.18)" }} />
+                <div className="flex-1 h-1.5 rounded-full" style={{ background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,57,107,0.08)" }}>
+                  <div className="h-full rounded-full" style={{ width: `${w}%`, background: isDark ? "rgba(255,255,255,0.18)" : "rgba(0,57,107,0.18)" }} />
                 </div>
-                <div className="h-2 w-7 rounded" style={{ background: "rgba(255,255,255,0.10)" }} />
+                <div className="h-2 w-7 rounded" style={{ background: isDark ? "rgba(255,255,255,0.10)" : "rgba(0,57,107,0.10)" }} />
               </div>
             ))}
           </div>
@@ -2947,6 +2999,7 @@ function NarrativeLoadingStandard() {
 // Agent-instructions loading skeleton — mirrors the 5-section format:
 // Opening claim → Key results → The Challenge → Country Examples → Lessons Learned
 function NarrativeLoadingAgent() {
+  const { isDark } = useTheme();
   const sections = [
     "Opening Claim",
     "Key Results",
@@ -2961,13 +3014,15 @@ function NarrativeLoadingAgent() {
       <div
         className="rounded-2xl overflow-hidden animate-pulse"
         style={{
-          background: "linear-gradient(150deg, rgba(8,15,30,0.98) 0%, rgba(12,22,44,0.96) 100%)",
-          border: "1px solid rgba(255,255,255,0.07)",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.22)",
+          background: isDark
+            ? "linear-gradient(150deg, rgba(8,15,30,0.98) 0%, rgba(12,22,44,0.96) 100%)"
+            : "linear-gradient(150deg, #F0F7FE 0%, #E8F2FB 100%)",
+          border: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(0,57,107,0.12)",
+          boxShadow: isDark ? "0 8px 32px rgba(0,0,0,0.22)" : "0 4px 16px rgba(0,57,107,0.08)",
         }}
       >
         <div className="px-6 pt-5 pb-2">
-          <div className="h-2 w-28 rounded-full" style={{ background: "rgba(255,255,255,0.12)" }} />
+          <div className="h-2 w-28 rounded-full" style={{ background: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,57,107,0.12)" }} />
         </div>
         <div className="flex items-center gap-8 px-6 pb-6">
           {/* Donut ring placeholder */}
@@ -2976,18 +3031,18 @@ function NarrativeLoadingAgent() {
             style={{
               width: 120,
               height: 120,
-              border: "8px solid rgba(255,255,255,0.10)",
-              background: "rgba(255,255,255,0.04)",
+              border: isDark ? "8px solid rgba(255,255,255,0.10)" : "8px solid rgba(0,57,107,0.10)",
+              background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,57,107,0.04)",
             }}
           />
           {/* Criteria bars */}
           <div className="flex-1 flex flex-col gap-3">
             {[70, 90, 55, 80, 60].map((w, i) => (
               <div key={i} className="flex items-center gap-2.5">
-                <div className="flex-1 h-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>
-                  <div className="h-full rounded-full" style={{ width: `${w}%`, background: "rgba(255,255,255,0.18)" }} />
+                <div className="flex-1 h-1.5 rounded-full" style={{ background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,57,107,0.08)" }}>
+                  <div className="h-full rounded-full" style={{ width: `${w}%`, background: isDark ? "rgba(255,255,255,0.18)" : "rgba(0,57,107,0.18)" }} />
                 </div>
-                <div className="h-2 w-7 rounded" style={{ background: "rgba(255,255,255,0.10)" }} />
+                <div className="h-2 w-7 rounded" style={{ background: isDark ? "rgba(255,255,255,0.10)" : "rgba(0,57,107,0.10)" }} />
               </div>
             ))}
           </div>
@@ -3127,6 +3182,7 @@ const DIM_TO_SCORE_KEY: Record<number, keyof NarrativeScores> = {
 };
 
 export default function NarrativePanel({ open, prompt, onClose, width, onResize, onGenerate, onPreview, loading, generatedKinds = [], skeletonId = null, extraCountryApplied = false, addedVisuals = [], onRemoveVisual, onAddVisual, onModifyContent, onAutoPrompt, contentModifySignal, guidanceSignal, guidedSkeleton, narrativeVariant = "results", narrativeMeta }: Props) {
+  const { isDark } = useTheme();
   const [dragging, setDragging] = useState(false);
   const startX = useRef(0);
   const startWidth = useRef(0);
@@ -3539,8 +3595,8 @@ export default function NarrativePanel({ open, prompt, onClose, width, onResize,
         </div>
       )}
 
-      {/* Header */}
-      <header className="shrink-0 flex items-center justify-between px-5 py-4 border-b border-gray-100">
+      {/* Header — hidden during loading so the beam sits flush at the top */}
+      {loadPhase === "ready" && <header className="shrink-0 flex items-center justify-between px-5 border-b border-gray-100" style={{ height: 56 }}>
         <div className="flex items-center gap-2.5">
           <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase" as const, padding: "2px 7px", borderRadius: 4, background: "rgba(99,102,241,0.10)", color: "#6366F1", border: "1px solid rgba(99,102,241,0.22)" }}>
             Draft
@@ -3566,7 +3622,7 @@ export default function NarrativePanel({ open, prompt, onClose, width, onResize,
             <IconX size={16} />
           </button>
         </div>
-      </header>
+      </header>}
 
       {/* Scroll-linked stepper — vertically centered on the panel edge. Fades
           in once the user scrolls; the active dot expands to reveal its
@@ -3578,6 +3634,9 @@ export default function NarrativePanel({ open, prompt, onClose, width, onResize,
         onJump={scrollToAnchor}
       />
 
+      {/* Nav-height spacer — aligns beam with the bottom of the 56px global nav during loading */}
+      {loadPhase !== "ready" && <div style={{ height: 56, flexShrink: 0 }} />}
+
       {/* Body — beam lives here so it appears below the "Draft Narrative" header */}
       <div className="flex-1 relative overflow-hidden flex flex-col">
         {(loadPhase === "reasoning" || loadPhase === "skeleton") && (
@@ -3587,23 +3646,23 @@ export default function NarrativePanel({ open, prompt, onClose, width, onResize,
               className="prompt-stroke absolute left-0 right-0 pointer-events-none"
               style={{ top: 0, height: 3, zIndex: 65 }}
             />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute overflow-hidden"
+            style={{ top: 0, left: 0, right: 0, height: 300, zIndex: 64 }}
+          >
             <div
-              aria-hidden
-              className="pointer-events-none absolute overflow-hidden"
-              style={{ top: 0, left: 0, right: 0, height: 300, zIndex: 64 }}
-            >
-              <div
-                className="prompt-beam absolute"
-                style={{
-                  top: 0,
-                  left: "50%",
-                  width: "min(900px, 200%)",
-                  height: 240,
-                  transform: "translateX(-50%)",
-                  borderRadius: "50%",
-                }}
-              />
-            </div>
+              className="prompt-beam absolute"
+              style={{
+                top: 0,
+                left: "50%",
+                width: "min(900px, 200%)",
+                height: 240,
+                transform: "translateX(-50%)",
+                borderRadius: "50%",
+              }}
+            />
+          </div>
           </>
         )}
 
@@ -3619,31 +3678,33 @@ export default function NarrativePanel({ open, prompt, onClose, width, onResize,
             <div
               className="narrative-content-enter rounded-xl"
               style={{
-                background: "linear-gradient(150deg, rgba(8,15,30,0.97) 0%, rgba(12,22,44,0.95) 100%)",
-                border: "1px solid rgba(255,255,255,0.07)",
+                background: isDark
+                  ? "linear-gradient(150deg, rgba(8,15,30,0.97) 0%, rgba(12,22,44,0.95) 100%)"
+                  : "rgba(0,57,107,0.04)",
+                border: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(0,57,107,0.12)",
                 padding: "14px 18px",
               }}
             >
-              <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.10em", color: "rgba(255,255,255,0.35)", textTransform: "uppercase", marginBottom: 10 }}>
+              <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.10em", textTransform: "uppercase", marginBottom: 10, color: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,57,107,0.45)" }}>
                 Overview
               </p>
               <div style={{ display: "flex", gap: 28, flexWrap: "wrap" as const }}>
                 {narrativeMeta.audience && (
                   <div style={{ display: "flex", flexDirection: "column" as const, gap: 3 }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" as const, color: "rgba(255,255,255,0.28)" }}>Audience</span>
-                    <span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.82)", fontFamily: "'Open Sans', sans-serif" }}>{narrativeMeta.audience}</span>
+                    <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" as const, color: isDark ? "rgba(255,255,255,0.28)" : "rgba(0,57,107,0.40)" }}>Audience</span>
+                    <span style={{ fontSize: 12.5, fontFamily: "'Open Sans', sans-serif", color: isDark ? "rgba(255,255,255,0.82)" : "#1A2E3A" }}>{narrativeMeta.audience}</span>
                   </div>
                 )}
                 {narrativeMeta.readTime && (
                   <div style={{ display: "flex", flexDirection: "column" as const, gap: 3 }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" as const, color: "rgba(255,255,255,0.28)" }}>Read Time</span>
-                    <span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.82)", fontFamily: "'Open Sans', sans-serif" }}>{narrativeMeta.readTime}</span>
+                    <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" as const, color: isDark ? "rgba(255,255,255,0.28)" : "rgba(0,57,107,0.40)" }}>Read Time</span>
+                    <span style={{ fontSize: 12.5, fontFamily: "'Open Sans', sans-serif", color: isDark ? "rgba(255,255,255,0.82)" : "#1A2E3A" }}>{narrativeMeta.readTime}</span>
                   </div>
                 )}
                 {narrativeMeta.tonality && (
                   <div style={{ display: "flex", flexDirection: "column" as const, gap: 3 }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" as const, color: "rgba(255,255,255,0.28)" }}>Tonality</span>
-                    <span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.82)", fontFamily: "'Open Sans', sans-serif" }}>{narrativeMeta.tonality}</span>
+                    <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" as const, color: isDark ? "rgba(255,255,255,0.28)" : "rgba(0,57,107,0.40)" }}>Tonality</span>
+                    <span style={{ fontSize: 12.5, fontFamily: "'Open Sans', sans-serif", color: isDark ? "rgba(255,255,255,0.82)" : "#1A2E3A" }}>{narrativeMeta.tonality}</span>
                   </div>
                 )}
               </div>
@@ -3713,16 +3774,21 @@ export default function NarrativePanel({ open, prompt, onClose, width, onResize,
         onPreview={() => { setPreviewOpen(true); onPreview?.(); }}
       />
 
-      {/* Preview modal */}
-      <PreviewModal
-        open={previewOpen}
-        onClose={() => setPreviewOpen(false)}
-        sections={orderedSections}
-        hero={hero}
-        narrativeMeta={narrativeMeta}
-        tab={previewTab}
-        onTabChange={setPreviewTab}
-      />
+      {/* Preview modal — rendered via portal so position:fixed escapes the
+          aside's transform containing block and is relative to the viewport. */}
+      {previewOpen && typeof document !== "undefined" && createPortal(
+        <PreviewModal
+          open={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          sections={orderedSections}
+          hero={hero}
+          narrativeMeta={narrativeMeta}
+          tab={previewTab}
+          onTabChange={setPreviewTab}
+          panelWidth={width}
+        />,
+        document.body
+      )}
 
       {/* Selection-driven contextual menu. Rendered via portal so that
           position:fixed works relative to the viewport — the aside's
@@ -3760,6 +3826,58 @@ export default function NarrativePanel({ open, prompt, onClose, width, onResize,
 
 // ─── Preview modal ────────────────────────────────────────────────────────────
 
+/** Convert a flag emoji (e.g. 🇪🇹) to its ISO 3166-1 alpha-2 code ("et"). */
+function emojiToISO2(emoji: string): string {
+  const chars = [...(emoji ?? "")];
+  if (chars.length < 2) return "";
+  const a = (chars[0].codePointAt(0) ?? 0) - 0x1F1E6;
+  const b = (chars[1].codePointAt(0) ?? 0) - 0x1F1E6;
+  if (a < 0 || a > 25 || b < 0 || b > 25) return "";
+  return String.fromCharCode(a + 97, b + 97);
+}
+
+/** Inline flat SVG flags keyed by ISO-2 lowercase code. */
+const FLAG_SVGS: Record<string, React.ReactElement> = {
+  et: <svg viewBox="0 0 20 15" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><rect width="20" height="5" fill="#078930"/><rect y="5" width="20" height="5" fill="#FCDD09"/><rect y="10" width="20" height="5" fill="#DA121A"/><circle cx="10" cy="7.5" r="3.2" fill="#0F47AF"/><polygon points="10,5.1 10.55,6.85 12.4,6.85 11,7.9 11.55,9.65 10,8.6 8.45,9.65 9,7.9 7.6,6.85 9.45,6.85" fill="#FCDD09"/></svg>,
+  ne: <svg viewBox="0 0 20 15" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><rect width="20" height="5" fill="#E05206"/><rect y="5" width="20" height="5" fill="#FFFFFF"/><rect y="10" width="20" height="5" fill="#009A00"/><circle cx="10" cy="7.5" r="1.8" fill="#E05206"/></svg>,
+  ke: <svg viewBox="0 0 20 15" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><rect width="20" height="4.5" fill="#006600"/><rect y="4.5" width="20" height="0.9" fill="#FFFFFF"/><rect y="5.4" width="20" height="4.2" fill="#BB0000"/><rect y="9.6" width="20" height="0.9" fill="#FFFFFF"/><rect y="10.5" width="20" height="4.5" fill="#006600"/><ellipse cx="10" cy="7.5" rx="1.8" ry="3.1" fill="#1A1A1A"/><ellipse cx="10" cy="7.5" rx="1.1" ry="1.9" fill="#BB0000"/><line x1="10" y1="4.3" x2="10" y2="10.7" stroke="#FFFFFF" strokeWidth="0.45"/></svg>,
+  ye: <svg viewBox="0 0 20 15" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><rect width="20" height="5" fill="#CE1126"/><rect y="5" width="20" height="5" fill="#FFFFFF"/><rect y="10" width="20" height="5" fill="#000000"/></svg>,
+  af: <svg viewBox="0 0 20 15" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><rect width="6.7" height="15" fill="#1A1A1A"/><rect x="6.7" width="6.6" height="15" fill="#BC0000"/><rect x="13.3" width="6.7" height="15" fill="#009A44"/></svg>,
+  sd: <svg viewBox="0 0 20 15" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><rect width="20" height="5" fill="#D21034"/><rect y="5" width="20" height="5" fill="#FFFFFF"/><rect y="10" width="20" height="5" fill="#1A1A1A"/><polygon points="0,0 8,7.5 0,15" fill="#007229"/></svg>,
+  ng: <svg viewBox="0 0 20 15" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><rect width="6.7" height="15" fill="#008751"/><rect x="6.7" width="6.6" height="15" fill="#FFFFFF"/><rect x="13.3" width="6.7" height="15" fill="#008751"/></svg>,
+  gh: <svg viewBox="0 0 20 15" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><rect width="20" height="5" fill="#CF0921"/><rect y="5" width="20" height="5" fill="#FCD116"/><rect y="10" width="20" height="5" fill="#006B3F"/><polygon points="10,5.2 10.55,6.95 12.4,6.95 11,8 11.55,9.75 10,8.7 8.45,9.75 9,8 7.6,6.95 9.45,6.95" fill="#000000"/></svg>,
+  ug: <svg viewBox="0 0 20 15" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><rect width="20" height="2.5" fill="#1A1A1A"/><rect y="2.5" width="20" height="2.5" fill="#FCD116"/><rect y="5" width="20" height="2.5" fill="#CE1126"/><rect y="7.5" width="20" height="2.5" fill="#1A1A1A"/><rect y="10" width="20" height="2.5" fill="#FCD116"/><rect y="12.5" width="20" height="2.5" fill="#CE1126"/><circle cx="10" cy="7.5" r="2.4" fill="#FFFFFF"/></svg>,
+  tz: <svg viewBox="0 0 20 15" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><polygon points="0,0 20,0 0,15" fill="#1EB53A"/><polygon points="20,0 20,15 0,15" fill="#00A3DD"/><polygon points="0,0 20,15 0,15" fill="#1A1A1A"/><line x1="0" y1="0" x2="20" y2="15" stroke="#FCD116" strokeWidth="2.5"/></svg>,
+  rw: <svg viewBox="0 0 20 15" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><rect width="20" height="5.6" fill="#20603D"/><rect y="5.6" width="20" height="3.8" fill="#FAD201"/><rect y="9.4" width="20" height="5.6" fill="#20A0D6"/><circle cx="15.5" cy="4.2" r="1.6" fill="#FAD201"/></svg>,
+  mz: <svg viewBox="0 0 20 15" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><rect width="20" height="5" fill="#009A44"/><rect y="5" width="20" height="5" fill="#1A1A1A"/><rect y="10" width="20" height="5" fill="#FCE100"/><line x1="0" y1="4.6" x2="20" y2="4.6" stroke="#FFFFFF" strokeWidth="0.5"/><line x1="0" y1="10.4" x2="20" y2="10.4" stroke="#FFFFFF" strokeWidth="0.5"/><polygon points="0,0 9,7.5 0,15" fill="#D21034"/></svg>,
+  ss: <svg viewBox="0 0 20 15" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><rect width="20" height="5" fill="#078930"/><rect y="5" width="20" height="5" fill="#FF0000"/><rect y="10" width="20" height="5" fill="#1A1A1A"/><line x1="0" y1="4.6" x2="20" y2="4.6" stroke="#FFFFFF" strokeWidth="0.5"/><line x1="0" y1="10.4" x2="20" y2="10.4" stroke="#FFFFFF" strokeWidth="0.5"/><polygon points="0,0 10,7.5 0,15" fill="#0F47AF"/></svg>,
+  ml: <svg viewBox="0 0 20 15" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><rect width="6.7" height="15" fill="#14B53A"/><rect x="6.7" width="6.6" height="15" fill="#FCD116"/><rect x="13.3" width="6.7" height="15" fill="#CE1126"/></svg>,
+  sn: <svg viewBox="0 0 20 15" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><rect width="6.7" height="15" fill="#00853F"/><rect x="6.7" width="6.6" height="15" fill="#FDEF42"/><rect x="13.3" width="6.7" height="15" fill="#E31B23"/><polygon points="10,5.5 10.45,6.9 11.9,6.9 10.75,7.75 11.2,9.15 10,8.3 8.8,9.15 9.25,7.75 8.1,6.9 9.55,6.9" fill="#00853F"/></svg>,
+  bd: <svg viewBox="0 0 20 15" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><rect width="20" height="15" fill="#006A4E"/><circle cx="9.5" cy="7.5" r="4" fill="#F42A41"/></svg>,
+  pk: <svg viewBox="0 0 20 15" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><rect width="4" height="15" fill="#FFFFFF"/><rect x="4" width="16" height="15" fill="#01411C"/><circle cx="11.5" cy="7.5" r="3" fill="#FFFFFF"/><circle cx="12.8" cy="7.5" r="2.3" fill="#01411C"/></svg>,
+  in: <svg viewBox="0 0 20 15" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><rect width="20" height="5" fill="#FF9933"/><rect y="5" width="20" height="5" fill="#FFFFFF"/><rect y="10" width="20" height="5" fill="#138808"/><circle cx="10" cy="7.5" r="1.8" fill="none" stroke="#000080" strokeWidth="0.5"/><circle cx="10" cy="7.5" r="0.4" fill="#000080"/></svg>,
+  id: <svg viewBox="0 0 20 15" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><rect width="20" height="7.5" fill="#CE1126"/><rect y="7.5" width="20" height="7.5" fill="#FFFFFF"/></svg>,
+  ph: <svg viewBox="0 0 20 15" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"><rect width="20" height="7.5" fill="#0038A8"/><rect y="7.5" width="20" height="7.5" fill="#CE1126"/><polygon points="0,0 9,7.5 0,15" fill="#FFFFFF"/><circle cx="4.5" cy="7.5" r="1.2" fill="#FCD116"/></svg>,
+};
+
+/** Inline flat SVG flag, falling back to a neutral pill if ISO not mapped. */
+function FlagImg({ emoji, size = 16 }: { emoji: string; size?: number }) {
+  const iso = emojiToISO2(emoji);
+  const svg = iso ? FLAG_SVGS[iso] : undefined;
+  const w = size;
+  const h = Math.round(size * 0.75);
+  if (!svg) {
+    return (
+      <span style={{ display: "inline-block", width: w, height: h, background: "rgba(255,255,255,0.15)", borderRadius: 2, flexShrink: 0 }} />
+    );
+  }
+  return (
+    <span style={{ display: "inline-flex", width: w, height: h, borderRadius: 2, overflow: "hidden", flexShrink: 0, lineHeight: 0 }}>
+      {svg}
+    </span>
+  );
+}
+
 interface PreviewModalProps {
   open: boolean;
   onClose: () => void;
@@ -3768,6 +3886,7 @@ interface PreviewModalProps {
   narrativeMeta?: { title?: string; audience?: string; readTime?: string; tonality?: string };
   tab: "document" | "slides" | "infographic";
   onTabChange: (t: "document" | "slides" | "infographic") => void;
+  panelWidth: number;
 }
 
 const PREVIEW_TABS: { id: "document" | "slides" | "infographic"; label: string }[] = [
@@ -3776,8 +3895,11 @@ const PREVIEW_TABS: { id: "document" | "slides" | "infographic"; label: string }
   { id: "infographic", label: "Infographic" },
 ];
 
-function PreviewModal({ open, onClose, sections, hero, narrativeMeta, tab, onTabChange }: PreviewModalProps) {
+function PreviewModal({ open, onClose, sections, hero, narrativeMeta, tab, onTabChange, panelWidth }: PreviewModalProps) {
   if (!open) return null;
+  const { isDark } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setMounted(true), 60); return () => clearTimeout(t); }, []);
   const docTitle = narrativeMeta?.title ?? hero.title;
   const docAudience = narrativeMeta?.audience ?? "IDA Senior Management";
   const F = "'Open Sans', sans-serif";
@@ -3786,28 +3908,30 @@ function PreviewModal({ open, onClose, sections, hero, narrativeMeta, tab, onTab
     <div
       style={{
         position: "fixed", inset: 0, zIndex: 9999,
-        background: "rgba(0,0,0,0.72)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        backdropFilter: "blur(4px)",
+        background: isDark ? "rgba(0,0,0,0.40)" : "rgba(0,0,0,0.25)",
+        backdropFilter: "blur(3px)",
       }}
       onClick={onClose}
     >
       <div
         style={{
-          width: "min(92vw, 1020px)", height: "min(90vh, 780px)",
-          borderRadius: 18, overflow: "hidden",
+          position: "absolute", top: 0, right: 0, bottom: 0,
+          width: panelWidth,
+          overflow: "hidden",
           display: "flex", flexDirection: "column",
-          background: "#0D1B26",
-          boxShadow: "0 32px 80px rgba(0,0,0,0.70)",
-          border: "1px solid rgba(255,255,255,0.09)",
+          background: isDark ? "#0D1B26" : "#F0F7FE",
+          boxShadow: isDark ? "-8px 0 40px rgba(0,0,0,0.60)" : "-8px 0 40px rgba(0,57,107,0.12)",
+          borderLeft: isDark ? "1px solid rgba(255,255,255,0.06)" : "1px solid rgba(0,57,107,0.12)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.07)",
-          background: "rgba(255,255,255,0.02)", flexShrink: 0,
+          padding: "14px 20px",
+          borderBottom: isDark ? "1px solid rgba(255,255,255,0.07)" : "1px solid rgba(0,57,107,0.10)",
+          background: isDark ? "rgba(255,255,255,0.02)" : "#fff",
+          flexShrink: 0,
         }}>
           <div style={{ display: "flex", gap: 6 }}>
             {PREVIEW_TABS.map((t) => (
@@ -3818,9 +3942,15 @@ function PreviewModal({ open, onClose, sections, hero, narrativeMeta, tab, onTab
                   padding: "5px 14px", borderRadius: 100,
                   fontSize: 12.5, fontWeight: tab === t.id ? 600 : 500,
                   fontFamily: F, cursor: "pointer",
-                  border: tab === t.id ? "1px solid rgba(255,255,255,0.22)" : "1px solid transparent",
-                  background: tab === t.id ? "rgba(255,255,255,0.10)" : "transparent",
-                  color: tab === t.id ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.45)",
+                  border: tab === t.id
+                    ? isDark ? "1px solid rgba(255,255,255,0.22)" : "1px solid rgba(0,57,107,0.30)"
+                    : "1px solid transparent",
+                  background: tab === t.id
+                    ? isDark ? "rgba(255,255,255,0.10)" : "rgba(0,57,107,0.07)"
+                    : "transparent",
+                  color: tab === t.id
+                    ? isDark ? "rgba(255,255,255,0.92)" : "#15353F"
+                    : isDark ? "rgba(255,255,255,0.45)" : "#6B7C8E",
                   transition: "all 120ms",
                 }}
               >
@@ -3831,9 +3961,11 @@ function PreviewModal({ open, onClose, sections, hero, narrativeMeta, tab, onTab
           <button
             onClick={onClose}
             style={{
-              background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.10)",
+              background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,57,107,0.06)",
+              border: isDark ? "1px solid rgba(255,255,255,0.10)" : "1px solid rgba(0,57,107,0.15)",
               borderRadius: 8, cursor: "pointer",
-              color: "rgba(255,255,255,0.55)", fontSize: 18, lineHeight: 1,
+              color: isDark ? "rgba(255,255,255,0.55)" : "#5A6B7C",
+              fontSize: 18, lineHeight: 1,
               padding: "4px 10px", fontFamily: F,
             }}
           >
@@ -3842,7 +3974,7 @@ function PreviewModal({ open, onClose, sections, hero, narrativeMeta, tab, onTab
         </div>
 
         {/* Body */}
-        <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
+        <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", background: isDark ? "#0D1B26" : "#F0F7FE" }}>
 
           {/* ── Document view ─────────────────────────────── */}
           {tab === "document" && (
@@ -3893,13 +4025,25 @@ function PreviewModal({ open, onClose, sections, hero, narrativeMeta, tab, onTab
                   }}>
                     {`${i + 1}. ${s.title}`}
                   </h2>
-                  <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.75, color: "#374151", fontFamily: F }}>
-                    {s.paragraphs?.[0] ?? s.body}
-                  </p>
+                  {(s.paragraphs?.[0] || s.body) && (
+                    <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.75, color: "#374151", fontFamily: F }}>
+                      {s.paragraphs?.[0] || s.body}
+                    </p>
+                  )}
                   {s.paragraphs && s.paragraphs.length > 1 && (
                     <p style={{ margin: "10px 0 0", fontSize: 12.5, lineHeight: 1.75, color: "#374151", fontFamily: F }}>
                       {s.paragraphs[1]}
                     </p>
+                  )}
+                  {s.tocSteps && s.tocSteps.length > 0 && (
+                    <div style={{ margin: "8px 0 0", display: "flex", flexDirection: "column", gap: 10 }}>
+                      {s.tocSteps.map((step, si) => (
+                        <div key={si} style={{ paddingLeft: 12, borderLeft: "3px solid #bfdbfe" }}>
+                          <div style={{ fontSize: 11.5, fontWeight: 700, color: "#1a3a5c", fontFamily: F, marginBottom: 2 }}>{step.label}</div>
+                          <p style={{ margin: 0, fontSize: 12, color: "#374151", fontFamily: F, lineHeight: 1.65 }}>{step.body}</p>
+                        </div>
+                      ))}
+                    </div>
                   )}
                   {s.bullets && s.bullets.length > 0 && (
                     <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
@@ -3921,7 +4065,7 @@ function PreviewModal({ open, onClose, sections, hero, narrativeMeta, tab, onTab
                     <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
                       {s.countryStories.map((cs, ci) => (
                         <div key={ci} style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 6, padding: "8px 12px" }}>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: "#1a3a5c", fontFamily: F, marginBottom: 3 }}>{cs.flag} {cs.name}</div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "#1a3a5c", fontFamily: F, marginBottom: 3, display: "flex", alignItems: "center", gap: 6 }}><FlagImg emoji={cs.flag} size={16} /> {cs.name}</div>
                           <p style={{ margin: 0, fontSize: 11.5, color: "#374151", fontFamily: F, lineHeight: 1.6 }}>{cs.body}</p>
                           {cs.result && <p style={{ margin: "4px 0 0", fontSize: 11, color: "#059669", fontFamily: F, fontWeight: 500 }}>→ {cs.result}</p>}
                         </div>
@@ -3935,7 +4079,7 @@ function PreviewModal({ open, onClose, sections, hero, narrativeMeta, tab, onTab
 
           {/* ── Slides view ───────────────────────────────── */}
           {tab === "slides" && (
-            <div style={{ padding: "28px 32px", display: "flex", flexDirection: "column", gap: 24 }}>
+            <div style={{ padding: "28px 32px", display: "flex", flexDirection: "column", gap: 24, background: isDark ? "#0D1B26" : "#E8F2FB", minHeight: "100%" }}>
               {/* Title slide */}
               <div style={{
                 aspectRatio: "16/9", borderRadius: 10, overflow: "hidden",
@@ -3990,9 +4134,20 @@ function PreviewModal({ open, onClose, sections, hero, narrativeMeta, tab, onTab
                   {/* Slide body */}
                   <div style={{ flex: 1, padding: "16px 36px 22px", overflow: "hidden", display: "flex", gap: 28 }}>
                     <div style={{ flex: 1 }}>
-                      <p style={{ margin: 0, fontSize: 11.5, lineHeight: 1.7, color: "rgba(255,255,255,0.72)", fontFamily: F, display: "-webkit-box", WebkitLineClamp: 7, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                        {s.paragraphs?.[0] ?? s.body}
-                      </p>
+                      {(s.paragraphs?.[0] || s.body) && (
+                        <p style={{ margin: 0, fontSize: 11.5, lineHeight: 1.7, color: "rgba(255,255,255,0.72)", fontFamily: F, display: "-webkit-box", WebkitLineClamp: 7, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                          {s.paragraphs?.[0] || s.body}
+                        </p>
+                      )}
+                      {s.tocSteps && s.tocSteps.slice(0, 3).map((step, si) => (
+                        <div key={si} style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "flex-start" }}>
+                          <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#0288D1", flexShrink: 0, marginTop: 6 }} />
+                          <div>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.85)", fontFamily: F }}>{step.label}: </span>
+                            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", fontFamily: F }}>{step.body.slice(0, 120)}{step.body.length > 120 ? "…" : ""}</span>
+                          </div>
+                        </div>
+                      ))}
                       {s.bullets && s.bullets.slice(0, 3).map((b, bi) => (
                         <div key={bi} style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "flex-start" }}>
                           <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#0288D1", flexShrink: 0, marginTop: 6 }} />
@@ -4012,7 +4167,7 @@ function PreviewModal({ open, onClose, sections, hero, narrativeMeta, tab, onTab
                       <div style={{ width: 180, flexShrink: 0, display: "flex", flexDirection: "column", gap: 8 }}>
                         {s.countryStories.slice(0, 2).map((cs, ci) => (
                           <div key={ci} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 7, padding: "8px 10px" }}>
-                            <div style={{ fontSize: 10.5, fontWeight: 600, color: "rgba(255,255,255,0.80)", fontFamily: F }}>{cs.flag} {cs.name}</div>
+                            <div style={{ fontSize: 10.5, fontWeight: 600, color: "rgba(255,255,255,0.80)", fontFamily: F, display: "flex", alignItems: "center", gap: 5 }}><FlagImg emoji={cs.flag} size={14} /> {cs.name}</div>
                             {cs.result && <div style={{ fontSize: 10, color: "#34D399", fontFamily: F, marginTop: 3 }}>→ {cs.result}</div>}
                           </div>
                         ))}
@@ -4030,75 +4185,294 @@ function PreviewModal({ open, onClose, sections, hero, narrativeMeta, tab, onTab
           )}
 
           {/* ── Infographic view ──────────────────────────── */}
-          {tab === "infographic" && (
-            <div style={{ padding: "28px 32px", fontFamily: F }}>
-              {/* Title band */}
-              <div style={{
-                background: "linear-gradient(135deg, #0a2540, #1a3a5c)",
-                borderRadius: 12, padding: "24px 32px", marginBottom: 20,
-                border: "1px solid rgba(255,255,255,0.08)",
-                display: "flex", justifyContent: "space-between", alignItems: "center",
-              }}>
-                <div>
-                  <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(255,255,255,0.38)", marginBottom: 6 }}>
-                    WBG · IDA FY25
-                  </div>
-                  <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#fff", lineHeight: 1.25 }}>{docTitle}</h1>
-                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.42)", marginTop: 4 }}>{docAudience}</div>
-                </div>
-                <div style={{ textAlign: "center", padding: "12px 20px", background: "rgba(2,136,209,0.15)", borderRadius: 10, border: "1px solid rgba(2,136,209,0.30)" }}>
-                  <div style={{ fontSize: 32, fontWeight: 800, color: "#38BDF8", lineHeight: 1 }}>{hero.metric.value}</div>
-                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.52)", marginTop: 4, maxWidth: 140, textAlign: "center" }}>{hero.metric.caption}</div>
-                </div>
-              </div>
+          {tab === "infographic" && (() => {
+            const allKRs       = sections.flatMap((s) => s.keyResults   ?? []).slice(0, 4);
+            const allCountries = sections.flatMap((s) => s.countryStories ?? []).slice(0, 10);
+            const TEAL  = "#007BA4";
+            const NAVY  = "#003057";
+            const WHITE = "#ffffff";
+            const BGALT = "#F4F8FB";
+            const TXT   = "#0D1B2A";
+            const MUTED = "#5A6B7C";
+            const DIV   = "rgba(0,57,107,0.09)";
+            const PAL   = [TEAL, "#0F9D7E", "#C2610F", "#6B54B5", "#B91C1C", "#0E7490"];
 
-              {/* Section cards grid */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                {sections.map((s, i) => {
-                  const accentColors = ["#0288D1","#34D399","#818CF8","#F59E0B","#F87171"];
-                  const accent = accentColors[i % accentColors.length];
-                  const bodyText = s.paragraphs?.[0] ?? s.body;
-                  return (
-                    <div key={s.id} style={{
-                      background: "rgba(255,255,255,0.03)",
-                      border: `1px solid ${accent}28`,
-                      borderTop: `3px solid ${accent}`,
-                      borderRadius: 10, padding: "16px 18px",
-                    }}>
-                      <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: "0.10em", textTransform: "uppercase", color: accent, marginBottom: 6 }}>
-                        {`0${i + 1}`}
-                      </div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.90)", marginBottom: 8, lineHeight: 1.3 }}>
-                        {s.title}
-                      </div>
-                      <p style={{ margin: 0, fontSize: 11, lineHeight: 1.65, color: "rgba(255,255,255,0.55)", display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                        {bodyText}
+            // ── Section header (bold title + short teal rule) ──
+            const SH = ({ label, color = TEAL }: { label: string; color?: string }) => (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.13em", textTransform: "uppercase" as const, color: TXT }}>{label}:</div>
+                <div style={{ marginTop: 4, height: 3, width: 38, borderRadius: 2, background: color }} />
+              </div>
+            );
+
+            // ── Flat SVG illustrations ──
+            const ILL_GLOBE = (
+              <svg viewBox="0 0 110 110" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: "100%", height: "100%" }}>
+                <circle cx="55" cy="55" r="42" fill="#EAF4FB" stroke={TEAL} strokeWidth="1.8"/>
+                <ellipse cx="55" cy="55" rx="22" ry="42" fill="none" stroke={TEAL} strokeWidth="1.4" strokeDasharray="4 2"/>
+                <line x1="13" y1="40" x2="97" y2="40" stroke={TEAL} strokeWidth="1.2" strokeDasharray="3 2"/>
+                <line x1="13" y1="55" x2="97" y2="55" stroke={TEAL} strokeWidth="1.2" strokeDasharray="3 2"/>
+                <line x1="13" y1="70" x2="97" y2="70" stroke={TEAL} strokeWidth="1.2" strokeDasharray="3 2"/>
+                {/* Location dots */}
+                <circle cx="40" cy="42" r="5" fill={TEAL} opacity="0.9"/>
+                <circle cx="40" cy="42" r="9" fill={TEAL} opacity="0.15"/>
+                <circle cx="72" cy="58" r="5" fill="#0F9D7E" opacity="0.9"/>
+                <circle cx="72" cy="58" r="9" fill="#0F9D7E" opacity="0.15"/>
+                <circle cx="52" cy="72" r="4" fill="#C2610F" opacity="0.9"/>
+                <circle cx="52" cy="72" r="8" fill="#C2610F" opacity="0.15"/>
+                {/* Connection lines */}
+                <line x1="40" y1="42" x2="72" y2="58" stroke={TEAL} strokeWidth="1.2" strokeDasharray="4 3"/>
+                <line x1="72" y1="58" x2="52" y2="72" stroke="#0F9D7E" strokeWidth="1.2" strokeDasharray="4 3"/>
+              </svg>
+            );
+
+            const ILL_CHART = (
+              <svg viewBox="0 0 110 110" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: "100%", height: "100%" }}>
+                {/* Bars */}
+                <rect x="12" y="65" width="14" height="30" rx="3" fill={TEAL} opacity="0.7"/>
+                <rect x="32" y="50" width="14" height="45" rx="3" fill={TEAL}/>
+                <rect x="52" y="38" width="14" height="57" rx="3" fill="#0F9D7E"/>
+                <rect x="72" y="55" width="14" height="40" rx="3" fill={TEAL} opacity="0.6"/>
+                {/* Trend line */}
+                <polyline points="19,65 39,50 59,38 79,55" stroke="#C2610F" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="19" cy="65" r="3.5" fill="#C2610F"/>
+                <circle cx="39" cy="50" r="3.5" fill="#C2610F"/>
+                <circle cx="59" cy="38" r="3.5" fill="#C2610F"/>
+                <circle cx="79" cy="55" r="3.5" fill="#C2610F"/>
+                {/* Arrow */}
+                <path d="M79 55 L90 42" stroke="#C2610F" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M90 42 L84 42 M90 42 L90 48" stroke="#C2610F" strokeWidth="2" strokeLinecap="round"/>
+                {/* Person */}
+                <circle cx="97" cy="28" r="7" fill={TEAL} opacity="0.15" stroke={TEAL} strokeWidth="1.5"/>
+                <circle cx="95" cy="26" r="1.5" fill={TEAL}/>
+                <circle cx="100" cy="26" r="1.5" fill={TEAL}/>
+                <path d="M96 31 Q97.5 33 99 31" stroke={TEAL} strokeWidth="1.2" fill="none" strokeLinecap="round"/>
+                <path d="M97.5 35 L97.5 50" stroke={TEAL} strokeWidth="2" strokeLinecap="round"/>
+                <path d="M97.5 40 L91 44 M97.5 40 L104 44" stroke={TEAL} strokeWidth="1.8" strokeLinecap="round"/>
+                <path d="M97.5 50 L93 60 M97.5 50 L102 60" stroke={TEAL} strokeWidth="1.8" strokeLinecap="round"/>
+                {/* Base */}
+                <line x1="8" y1="95" x2="102" y2="95" stroke={TXT} strokeWidth="1.5" strokeLinecap="round" opacity="0.2"/>
+              </svg>
+            );
+
+            const ILL_COMMUNITY = (
+              <svg viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: "100%", height: "100%" }}>
+                {/* Person 1 */}
+                <circle cx="28" cy="22" r="11" fill={TEAL} opacity="0.12" stroke={TEAL} strokeWidth="1.8"/>
+                <circle cx="26" cy="20" r="2" fill={TEAL}/>
+                <circle cx="31" cy="20" r="2" fill={TEAL}/>
+                <path d="M27 25 Q28.5 27.5 30 25" stroke={TEAL} strokeWidth="1.3" fill="none" strokeLinecap="round"/>
+                <path d="M28 33 L28 55" stroke={TEAL} strokeWidth="2.5" strokeLinecap="round"/>
+                <path d="M28 40 L20 45 M28 40 L36 45" stroke={TEAL} strokeWidth="2" strokeLinecap="round"/>
+                <path d="M28 55 L22 72 M28 55 L34 72" stroke={TEAL} strokeWidth="2" strokeLinecap="round"/>
+                <path d="M22 72 L17 72 M34 72 L39 72" stroke={TEAL} strokeWidth="2" strokeLinecap="round"/>
+                {/* Person 2 - center */}
+                <circle cx="60" cy="20" r="12" fill="#0F9D7E" opacity="0.12" stroke="#0F9D7E" strokeWidth="1.8"/>
+                <circle cx="58" cy="18" r="2" fill="#0F9D7E"/>
+                <circle cx="63" cy="18" r="2" fill="#0F9D7E"/>
+                <path d="M58 23 Q60.5 26 63 23" stroke="#0F9D7E" strokeWidth="1.3" fill="none" strokeLinecap="round"/>
+                <path d="M60 32 L60 55" stroke="#0F9D7E" strokeWidth="2.5" strokeLinecap="round"/>
+                <path d="M60 39 L51 44 M60 39 L69 44" stroke="#0F9D7E" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M60 55 L54 74 M60 55 L66 74" stroke="#0F9D7E" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M54 74 L48 74 M66 74 L72 74" stroke="#0F9D7E" strokeWidth="2" strokeLinecap="round"/>
+                {/* Person 3 */}
+                <circle cx="92" cy="22" r="11" fill="#C2610F" opacity="0.12" stroke="#C2610F" strokeWidth="1.8"/>
+                <circle cx="90" cy="20" r="2" fill="#C2610F"/>
+                <circle cx="95" cy="20" r="2" fill="#C2610F"/>
+                <path d="M91 25 Q92.5 27.5 94 25" stroke="#C2610F" strokeWidth="1.3" fill="none" strokeLinecap="round"/>
+                <path d="M92 33 L92 55" stroke="#C2610F" strokeWidth="2.5" strokeLinecap="round"/>
+                <path d="M92 40 L84 45 M92 40 L100 45" stroke="#C2610F" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M92 55 L86 72 M92 55 L98 72" stroke="#C2610F" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M86 72 L81 72 M98 72 L103 72" stroke="#C2610F" strokeWidth="2" strokeLinecap="round"/>
+                {/* Ground */}
+                <line x1="10" y1="80" x2="110" y2="80" stroke={TXT} strokeWidth="1.2" strokeLinecap="round" opacity="0.15"/>
+              </svg>
+            );
+
+            const ILL_DOCUMENT = (
+              <svg viewBox="0 0 90 110" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: "100%", height: "100%" }}>
+                <rect x="10" y="8" width="60" height="80" rx="5" fill="#EAF4FB" stroke={TEAL} strokeWidth="1.8"/>
+                {/* Page fold */}
+                <path d="M55 8 L70 23" stroke={TEAL} strokeWidth="1.5"/>
+                <path d="M55 8 L55 23 L70 23" fill="white" stroke={TEAL} strokeWidth="1.5"/>
+                {/* Text lines */}
+                <line x1="20" y1="33" x2="60" y2="33" stroke={MUTED} strokeWidth="2" strokeLinecap="round" opacity="0.5"/>
+                <line x1="20" y1="42" x2="60" y2="42" stroke={MUTED} strokeWidth="2" strokeLinecap="round" opacity="0.5"/>
+                <line x1="20" y1="51" x2="48" y2="51" stroke={MUTED} strokeWidth="2" strokeLinecap="round" opacity="0.5"/>
+                {/* Check items */}
+                <rect x="20" y="62" width="9" height="9" rx="2" fill={TEAL}/>
+                <path d="M22 66.5 L24 69 L28 64" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <line x1="33" y1="67" x2="58" y2="67" stroke={MUTED} strokeWidth="1.5" strokeLinecap="round" opacity="0.5"/>
+                <rect x="20" y="75" width="9" height="9" rx="2" fill={TEAL}/>
+                <path d="M22 79.5 L24 82 L28 77" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <line x1="33" y1="80" x2="52" y2="80" stroke={MUTED} strokeWidth="1.5" strokeLinecap="round" opacity="0.5"/>
+                {/* Magnifier */}
+                <circle cx="72" cy="88" r="10" fill="white" stroke={TEAL} strokeWidth="1.8"/>
+                <circle cx="72" cy="88" r="5.5" fill="none" stroke={TEAL} strokeWidth="1.5"/>
+                <line x1="76" y1="92" x2="82" y2="98" stroke={TEAL} strokeWidth="2.5" strokeLinecap="round"/>
+              </svg>
+            );
+
+            const ILL_GROWTH = (
+              <svg viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: "100%", height: "100%" }}>
+                {/* Soil */}
+                <ellipse cx="50" cy="95" rx="34" ry="8" fill="#D4A76A" opacity="0.35"/>
+                {/* Main stem */}
+                <path d="M50 90 Q48 70 50 50 Q52 30 50 15" stroke="#0F9D7E" strokeWidth="3" strokeLinecap="round"/>
+                {/* Left leaf */}
+                <path d="M50 65 Q28 55 30 38 Q42 42 50 65" fill="#0F9D7E" opacity="0.8"/>
+                {/* Right leaf */}
+                <path d="M50 50 Q72 40 70 24 Q58 28 50 50" fill="#34D399" opacity="0.9"/>
+                {/* Small top leaf */}
+                <path d="M50 28 Q38 18 40 8 Q50 14 50 28" fill="#0F9D7E"/>
+                {/* Arrow going up */}
+                <path d="M68 60 L80 25" stroke={TEAL} strokeWidth="2.5" strokeLinecap="round"/>
+                <path d="M80 25 L74 30 M80 25 L76 32" stroke={TEAL} strokeWidth="2" strokeLinecap="round"/>
+                {/* Sun */}
+                <circle cx="80" cy="18" r="9" fill="#FCD34D"/>
+                <line x1="80" y1="5" x2="80" y2="1" stroke="#FCD34D" strokeWidth="2" strokeLinecap="round"/>
+                <line x1="93" y1="18" x2="97" y2="18" stroke="#FCD34D" strokeWidth="2" strokeLinecap="round"/>
+                <line x1="89" y1="9" x2="92" y2="6" stroke="#FCD34D" strokeWidth="2" strokeLinecap="round"/>
+                <line x1="89" y1="27" x2="92" y2="30" stroke="#FCD34D" strokeWidth="2" strokeLinecap="round"/>
+                <line x1="71" y1="9" x2="68" y2="6" stroke="#FCD34D" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            );
+
+            const ILLS = [ILL_CHART, ILL_DOCUMENT, ILL_COMMUNITY, ILL_GROWTH, ILL_GLOBE];
+
+            return (
+              <div style={{ fontFamily: F, background: WHITE, minHeight: "100%", display: "flex", flexDirection: "column" }}>
+
+                {/* ══ HERO ══ */}
+                <div style={{ background: `linear-gradient(135deg, ${NAVY} 0%, #00487A 55%, ${TEAL} 100%)`, padding: "22px 24px 20px", position: "relative", overflow: "hidden" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 8.5, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase" as const, color: "rgba(255,255,255,0.45)", marginBottom: 7 }}>WBG · IDA FY25</div>
+                      <h1 style={{ margin: "0 0 8px", fontSize: 19, fontWeight: 900, color: WHITE, lineHeight: 1.15 }}>{docTitle}</h1>
+                      <p style={{ margin: "0 0 12px", fontSize: 10, color: "rgba(255,255,255,0.58)", lineHeight: 1.6, maxWidth: 220 }}>
+                        {((sections[0]?.paragraphs?.[0] ?? sections[0]?.body) ?? "").slice(0, 110)}…
                       </p>
-                      {s.keyResults && s.keyResults.length > 0 && (
-                        <div style={{ marginTop: 10, display: "flex", gap: 10 }}>
-                          {s.keyResults.slice(0, 2).map((kr, ki) => (
-                            <div key={ki} style={{ background: `${accent}15`, borderRadius: 6, padding: "6px 10px", flex: 1 }}>
-                              <div style={{ fontSize: 14, fontWeight: 700, color: accent, lineHeight: 1 }}>{kr.value}</div>
-                              <div style={{ fontSize: 9.5, color: "rgba(255,255,255,0.40)", marginTop: 2 }}>{kr.consequence.slice(0, 40)}</div>
-                            </div>
-                          ))}
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: 14 }}>
+                        <span style={{ fontSize: 9, color: "rgba(255,255,255,0.55)", background: "rgba(255,255,255,0.10)", padding: "3px 9px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.14)" }}>{docAudience}</span>
+                        {narrativeMeta?.readTime && <span style={{ fontSize: 9, color: "rgba(255,255,255,0.55)", background: "rgba(255,255,255,0.10)", padding: "3px 9px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.14)" }}>{narrativeMeta.readTime}</span>}
+                        {narrativeMeta?.tonality && <span style={{ fontSize: 9, color: "rgba(255,255,255,0.55)", background: "rgba(255,255,255,0.10)", padding: "3px 9px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.14)" }}>{narrativeMeta.tonality}</span>}
+                      </div>
+                    </div>
+                    {/* Hero stat — top right */}
+                    <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.10)", borderRadius: 10, padding: "14px 16px", border: "1px solid rgba(255,255,255,0.18)", minWidth: 90, maxWidth: 110, textAlign: "center" as const }}>
+                      <span style={{ fontSize: 30, fontWeight: 900, color: WHITE, lineHeight: 1, letterSpacing: "-1.5px" }}>{hero.metric.value}</span>
+                      <span style={{ marginTop: 6, fontSize: 9, color: "rgba(255,255,255,0.62)", lineHeight: 1.4 }}>{hero.metric.caption}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ══ KEY FIGURES ══ */}
+                {allKRs.length > 0 && (
+                  <div style={{ padding: "18px 22px 16px", background: WHITE, borderBottom: `1px solid ${DIV}` }}>
+                    <SH label="Key Figures" />
+                    <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(allKRs.length, 4)}, 1fr)`, gap: 10 }}>
+                      {allKRs.map((kr, i) => (
+                        <div key={i} style={{ textAlign: "center", padding: "14px 10px 12px", background: BGALT, borderRadius: 8, borderTop: `3px solid ${PAL[i % PAL.length]}` }}>
+                          <div style={{ fontSize: 28, fontWeight: 900, color: PAL[i % PAL.length], lineHeight: 1, letterSpacing: "-1.5px", marginBottom: 6 }}>{kr.value}</div>
+                          <div style={{ fontSize: 8.5, color: MUTED, lineHeight: 1.45 }}>{kr.consequence.slice(0, 55)}</div>
                         </div>
-                      )}
-                      {s.countryStories && s.countryStories.length > 0 && (
-                        <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 5 }}>
-                          {s.countryStories.map((cs, ci) => (
-                            <span key={ci} style={{ fontSize: 10, color: "rgba(255,255,255,0.50)", background: "rgba(255,255,255,0.05)", borderRadius: 4, padding: "2px 7px" }}>
-                              {cs.flag} {cs.name}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ══ SECTION 0 (Headline) — full width, quote style ══ */}
+                {sections[0] && (() => {
+                  const s0 = sections[0];
+                  const body = s0.paragraphs?.[0] || s0.body || s0.tocSteps?.map(t => t.body).join(" ") || s0.lessons?.map(l => l.body).join(" ") || s0.bullets?.[0] || "";
+                  return (
+                    <div style={{ padding: "18px 22px 16px", background: BGALT, borderBottom: `1px solid ${DIV}`, display: "grid", gridTemplateColumns: "68px 1fr", gap: 16, alignItems: "center" }}>
+                      <div style={{ width: 68, height: 80 }}>{ILL_CHART}</div>
+                      <div>
+                        <SH label={sections[0].title} color={TEAL} />
+                        <p style={{ margin: 0, fontSize: 11.5, lineHeight: 1.7, color: TXT, fontStyle: "italic", borderLeft: `3px solid ${TEAL}`, paddingLeft: 10 }}>
+                          "{body.slice(0, 190)}{body.length > 190 ? "…" : ""}"
+                        </p>
+                      </div>
                     </div>
                   );
-                })}
+                })()}
+
+                {/* ══ SECTIONS 1–2 — 2-col grid ══ */}
+                {sections.length > 1 && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: `1px solid ${DIV}` }}>
+                    {sections.slice(1, 3).map((s, i) => {
+                      const color = PAL[i + 1];
+                      const body  = s.paragraphs?.[0] || s.body || s.tocSteps?.map(t => t.body).join(" ") || s.lessons?.map(l => l.body).join(" ") || s.bullets?.[0] || "";
+                      const sKRs  = (s.keyResults ?? []).slice(0, 2);
+                      return (
+                        <div key={s.id} style={{ padding: "16px 18px", background: i % 2 === 0 ? WHITE : BGALT, borderRight: i === 0 ? `1px solid ${DIV}` : "none" }}>
+                          <div style={{ width: 56, height: 56, marginBottom: 10 }}>{ILLS[(i + 1) % ILLS.length]}</div>
+                          <SH label={s.title} color={color} />
+                          <p style={{ margin: "0 0 10px", fontSize: 10, lineHeight: 1.65, color: MUTED, display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical" as const, overflow: "hidden" }}>
+                            {body}
+                          </p>
+                          {sKRs.length > 0 && (
+                            <div style={{ display: "flex", gap: 7, flexWrap: "wrap" as const }}>
+                              {sKRs.map((kr, ki) => (
+                                <div key={ki} style={{ background: `${color}0E`, border: `1px solid ${color}25`, borderRadius: 6, padding: "6px 10px" }}>
+                                  <div style={{ fontSize: 16, fontWeight: 800, color, lineHeight: 1 }}>{kr.value}</div>
+                                  <div style={{ fontSize: 8, color: MUTED, lineHeight: 1.35, marginTop: 2 }}>{kr.consequence.slice(0, 38)}</div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* ══ SECTIONS 3+ — icon-left + text rows ══ */}
+                {sections.slice(3).length > 0 && (
+                  <div style={{ padding: "18px 22px 14px", background: WHITE, borderBottom: `1px solid ${DIV}` }}>
+                    <SH label="Findings" color={PAL[3]} />
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                      {sections.slice(3).map((s, i) => {
+                        const color = PAL[(i + 3) % PAL.length];
+                        const body  = s.paragraphs?.[0] || s.body || s.tocSteps?.map(t => t.body).join(" ") || s.lessons?.map(l => l.body).join(" ") || s.bullets?.[0] || "";
+                        return (
+                          <div key={s.id} style={{ display: "flex", gap: 12, alignItems: "flex-start", paddingBottom: 12, borderBottom: `1px solid ${DIV}` }}>
+                            <div style={{ width: 48, height: 52, flexShrink: 0 }}>{ILLS[(i + 3) % ILLS.length]}</div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 10.5, fontWeight: 700, color: TXT, marginBottom: 4, lineHeight: 1.3 }}>{s.title}</div>
+                              <p style={{ margin: 0, fontSize: 9.5, lineHeight: 1.6, color: MUTED, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" as const, overflow: "hidden" }}>{body}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* ══ COUNTRIES ══ */}
+                {allCountries.length > 0 && (
+                  <div style={{ padding: "14px 22px", background: NAVY, borderTop: `1px solid rgba(255,255,255,0.06)` }}>
+                    <div style={{ fontSize: 8.5, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase" as const, color: "rgba(255,255,255,0.38)", marginBottom: 8 }}>Countries:</div>
+                    <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 6 }}>
+                      {allCountries.map((cs, ci) => (
+                        <span key={ci} style={{ fontSize: 10, color: "rgba(255,255,255,0.80)", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6, padding: "3px 9px", display: "inline-flex", alignItems: "center", gap: 5 }}>
+                          <FlagImg emoji={cs.flag} size={14} /> {cs.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ══ FOOTER ══ */}
+                <div style={{ padding: "10px 22px", background: "#020F1E", display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto" }}>
+                  <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase" as const, color: "rgba(255,255,255,0.30)" }}>WBG Corporate Scorecard · FY25</span>
+                  <span style={{ fontSize: 8, letterSpacing: "0.08em", color: "rgba(255,255,255,0.18)" }}>IDA Results Data · 2025-06-30</span>
+                </div>
+
               </div>
-            </div>
-          )}
+            );
+          })()}
 
         </div>
       </div>

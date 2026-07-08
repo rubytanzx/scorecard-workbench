@@ -1,5 +1,6 @@
 
 import { outcomeAreas, type OutcomeArea } from "@/lib/mockData";
+import { IconChevronRight } from "@tabler/icons-react";
 
 const F = "'Open Sans', sans-serif";
 
@@ -9,8 +10,8 @@ function Tile({ area }: { area: OutcomeArea }) {
       style={{
         flexShrink: 0,
         width: 200,
-        background: "rgba(255, 255, 255, 0.06)",
-        border: "1px solid rgba(255, 255, 255, 0.10)",
+        background: "var(--card-bg)",
+        border: "1px solid var(--card-border)",
         borderRadius: 14,
         padding: "20px 18px",
         display: "flex",
@@ -21,19 +22,19 @@ function Tile({ area }: { area: OutcomeArea }) {
         transition: "background 160ms, border-color 160ms",
       }}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.10)";
-        (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.18)";
+        (e.currentTarget as HTMLElement).style.background = "var(--card-bg-hover)";
+        (e.currentTarget as HTMLElement).style.borderColor = "var(--card-border-hover)";
       }}
       onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)";
-        (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.10)";
+        (e.currentTarget as HTMLElement).style.background = "var(--card-bg)";
+        (e.currentTarget as HTMLElement).style.borderColor = "var(--card-border)";
       }}
     >
       <span
         aria-hidden="true"
         style={{ display: "block", width: 36, height: 36, opacity: 0.85, backgroundImage: `url(${area.iconSrc})`, backgroundSize: "contain", backgroundRepeat: "no-repeat", backgroundPosition: "center" }}
       />
-      <div style={{ fontSize: 13.5, fontWeight: 600, color: "rgba(255,255,255,0.90)", lineHeight: 1.4 }}>
+      <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text-1)", lineHeight: 1.4 }}>
         {area.name}
       </div>
     </article>
@@ -47,7 +48,7 @@ export default function OutcomeAreaGrid() {
         <h2
           style={{
             margin: 0,
-            color: "rgba(255, 255, 255, 0.95)",
+            color: "var(--section-title)",
             fontFamily: F,
             fontSize: 26,
             fontWeight: 300,
@@ -57,8 +58,8 @@ export default function OutcomeAreaGrid() {
         >
           Explore by Outcome Area
         </h2>
-        <a href="#" style={{ fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.55)", fontFamily: F, textDecoration: "none" }}>
-          View all →
+        <a href="#" style={{ fontSize: 13, fontWeight: 500, color: "var(--section-link)", fontFamily: F, textDecoration: "none" }}>
+          View all <IconChevronRight size={13} style={{ display: "inline", verticalAlign: "middle" }} />
         </a>
       </div>
 
