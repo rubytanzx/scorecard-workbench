@@ -1370,9 +1370,6 @@ function BeneficiaryGeoFlow({ disabled = false, onMaliStep }: {
       {/* AI proactive question — shown until "where" step is added */}
       {!showWhere && !disabled && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <p style={{ margin: 0, fontSize: 13.5, color: "#374151", lineHeight: 1.65 }}>
-            Would you like to see a regional breakdown or an interactive map of where beneficiaries are concentrated?
-          </p>
           <div>
             <div className="flex items-center gap-2 mb-3">
               <IconSparkles size={13} className="text-violet-400 shrink-0" aria-hidden="true" />
