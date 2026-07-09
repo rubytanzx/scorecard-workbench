@@ -1287,7 +1287,7 @@ const SECTIONS_AFRICA: Section[] = [
     id: "headline",
     title: "Headline",
     quality: 78,
-    body: "In FCS countries, where institutional absorption capacity — not financing volume — is the binding constraint, IDA-supported safety nets, structured pedagogy, and primary health programs reached 939 million people in FY25 alongside government-led reforms and bilateral coordination. FCS-country health delivery ran 2.3× more efficiently than non-FCS IDA peers — the clearest evidence yet that integrated People-pillar investment compounds returns when the institutional foundations are in place, though health remains the most off-track component with a 13% delivery shortfall.",
+    body: "IDA-supported People-pillar programs reached 939 million people in FCS countries in FY25, with health delivery running 2.3× more efficiently than non-FCS IDA peers despite a 13% delivery shortfall.",
   },
   {
     id: "constraints",
